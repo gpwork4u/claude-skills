@@ -1,0 +1,1702 @@
+<title>動態 UI 實驗室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&family=Unbounded:wght@500;700;800&display=swap">
+<style>
+/* Layout：上方是動態語法與「能量」控制（sticky），下方是 12 個模式標本，每個標本＝深色舞台＋說明 */
+:root{
+  --bg:#F4F2EE; --surface:#FFFFFF; --fg:#1A1C20; --muted:#62656C; --line:#DEDBD4; --accent:#9A6410; --focus:#2457F5;
+  --st-bg:#17191E; --st-bg2:#20232A; --st-fg:#ECE8DF; --st-dim:#8D929C; --st-line:#2E323A; --st-acc:#F2B544; --st-acc2:#7DB8FF; --st-bad:#FF7A6B; --st-good:#86D49A;
+  --f-display:"Unbounded","Noto Sans TC",system-ui,sans-serif;
+  --f-ui:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --spring:cubic-bezier(.2,.9,.3,1.15); --spring-dur:600ms; --stagger:38ms; --press:.94;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0F1013; --surface:#16181C; --fg:#ECE8DF; --muted:#9A9EA6; --line:#2A2D33; --accent:#F2B544; --focus:#86A6FF; color-scheme:dark }
+}
+:root[data-theme="dark"]{ --bg:#0F1013; --surface:#16181C; --fg:#ECE8DF; --muted:#9A9EA6; --line:#2A2D33; --accent:#F2B544; --focus:#86A6FF; color-scheme:dark }
+@property --p{syntax:'<number>';inherits:true;initial-value:0}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);margin:0;font-size:15px;line-height:1.6}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+kbd{font:500 .74rem var(--f-mono);border:1px solid currentColor;border-bottom-width:2px;border-radius:3px;padding:0 4px;opacity:.85}
+
+.lab{max-width:1320px;margin:0 auto;padding-inline:clamp(16px,3vw,32px);padding-block:28px 72px;display:grid;gap:28px}
+.lab > *{min-width:0}
+.head{display:grid;gap:10px;max-width:72ch}
+.head h1{margin:0;font:800 clamp(1.6rem,3.4vw,2.4rem)/1.15 var(--f-display);letter-spacing:-.01em;text-wrap:balance}
+.head p{margin:0;color:var(--muted)}
+
+/* 能量控制列 */
+.ctl{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-block:1px solid var(--line);padding-block:12px;display:flex;flex-wrap:wrap;gap:12px 28px;align-items:center}
+.ctl-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.ctl-l{font:600 .7rem/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.seg{display:flex;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px;gap:3px}
+.seg button{appearance:none;border:0;background:transparent;padding:7px 12px;border-radius:4px;cursor:pointer;font-weight:500;font-size:.88rem}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.chk{display:flex;align-items:center;gap:8px;font-size:.88rem;cursor:pointer}
+.chk input{width:16px;height:16px;accent-color:var(--fg)}
+.curve{display:flex;align-items:center;gap:10px;min-width:0}
+.curve svg{width:150px;height:46px;flex:none;overflow:visible}
+.curve svg .tgt{stroke:var(--line);stroke-dasharray:3 3}
+.curve svg .crv{fill:none;stroke:var(--accent);stroke-width:2}
+.curve-meta{display:grid;gap:2px;font:500 .74rem/1.4 var(--f-mono);color:var(--muted);min-width:0}
+.copy{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:3px 8px;font:500 .72rem var(--f-mono);cursor:pointer;justify-self:start}
+
+/* 動態語法 */
+.grammar{display:grid;gap:14px}
+.grammar h2,.sec-h{margin:0;font:700 1.05rem/1.3 var(--f-display)}
+.axes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,168px),1fr));gap:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:0;padding:0;list-style:none}
+.axes li{background:var(--surface);padding:14px 16px;display:grid;gap:4px;align-content:start;box-shadow:inset -1px -1px 0 var(--line)}
+.axes b{font-size:.98rem}
+.axes b small{font:500 .68rem var(--f-mono);letter-spacing:.06em;color:var(--muted);margin-left:6px;text-transform:uppercase}
+.axes span{font-size:.86rem;color:var(--muted);line-height:1.55}
+.ax{--c:var(--muted)}
+.ax[data-ax="origin"]{--c:#D9822B}.ax[data-ax="path"]{--c:#3D8BD9}.ax[data-ax="rhythm"]{--c:#9B6AD6}.ax[data-ax="physics"]{--c:#2FA37A}
+.ax[data-ax="input"]{--c:#D6496A}.ax[data-ax="cont"]{--c:#2AA0B5}.ax[data-ax="fb"]{--c:#C29A1E}
+.axes li::before{content:"";width:22px;height:4px;border-radius:2px;background:var(--c)}
+
+/* 標本 */
+.specimens{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:20px}
+.sp{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:grid;grid-template-rows:auto 1fr;min-width:0}
+.stage{position:relative;aspect-ratio:4/3;min-height:270px;background:radial-gradient(ellipse at 50% 30%,var(--st-bg2),var(--st-bg) 70%);color:var(--st-fg);overflow:hidden;isolation:isolate;font-family:var(--f-ui)}
+.stage:focus-visible{outline:2px solid var(--st-acc2);outline-offset:-4px}
+.stage-cap{position:absolute;left:14px;top:12px;margin:0;font:500 .72rem/1.3 var(--f-mono);letter-spacing:.06em;color:var(--st-dim);z-index:5;pointer-events:none}
+.stage-out{position:absolute;left:14px;right:14px;bottom:10px;margin:0;font-size:.82rem;color:var(--st-dim);z-index:5;pointer-events:none;min-height:1.3em}
+.stage-out b{color:var(--st-fg);font-weight:700}
+.meta{padding:16px 18px 18px;display:grid;gap:10px;align-content:start}
+.meta h3{margin:0;font:700 1.08rem/1.3 var(--f-ui);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.meta h3 small{font:500 .7rem var(--f-mono);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.meta p{margin:0;font-size:.9rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.chips li{font-size:.74rem;padding:2px 8px 2px 6px;border-radius:999px;border:1px solid var(--line);display:flex;align-items:center;gap:5px}
+.chips li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.meta dl{display:grid;grid-template-columns:5.2em minmax(0,1fr);gap:4px 10px;margin:0;font-size:.84rem}
+.meta dt{color:var(--muted)}
+.meta dd{margin:0}
+
+/* 共用舞台元件 */
+.sbtn{appearance:none;border:1px solid var(--st-line);background:#262A32;color:var(--st-fg);border-radius:6px;padding:7px 12px;cursor:pointer;font-size:.84rem;transition:scale var(--spring-dur) var(--spring)}
+.sbtn:active{scale:var(--press)}
+.sbtn[aria-pressed="true"]{background:var(--st-fg);color:var(--st-bg)}
+.ico{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* 1 扇形展開 */
+.fan-wrap{position:absolute;width:0;height:0;z-index:2}
+.fan-stage[data-arc="90"] .fan-wrap{left:22%;bottom:22%}
+.fan-stage[data-arc="180"] .fan-wrap{left:50%;bottom:20%}
+.fan-stage[data-arc="360"] .fan-wrap{left:50%;top:52%}
+.fan-trigger{position:absolute;left:-29px;top:-29px;width:58px;height:58px;border-radius:50%;border:0;background:var(--st-acc);color:#1A1406;display:grid;place-items:center;cursor:pointer;z-index:3;transition:rotate var(--spring-dur) var(--spring),scale var(--spring-dur) var(--spring);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.fan-trigger:active{scale:var(--press)}
+.fan-trigger .ico{width:26px;height:26px;stroke-width:2.2}
+.fan-stage.open .fan-trigger{rotate:135deg}
+.fan-items{list-style:none;margin:0;padding:0}
+.fan-item{position:absolute;left:-24px;top:-24px;width:48px;height:48px;border-radius:50%;border:1px solid var(--st-line);background:#2A2E37;color:var(--st-fg);display:grid;place-items:center;cursor:pointer;opacity:0;scale:.3;translate:0 0;pointer-events:none;
+  transition:translate var(--spring-dur) var(--spring) calc((4 - var(--i)) * var(--stagger) * .6),scale var(--spring-dur) var(--spring) calc((4 - var(--i)) * var(--stagger) * .6),opacity .16s linear calc((4 - var(--i)) * var(--stagger) * .6),background .15s}
+.fan-stage.open .fan-item{opacity:1;scale:1;translate:var(--x) var(--y);pointer-events:auto;transition-delay:calc(var(--i) * var(--stagger))}
+.fan-item:hover,.fan-item:focus-visible{background:var(--st-fg);color:var(--st-bg)}
+.fan-cap{position:absolute;left:0;right:0;top:34%;text-align:center;font:700 1.15rem/1.2 var(--f-ui);margin:0;opacity:0;transition:opacity .2s;pointer-events:none}
+.fan-stage.open .fan-cap{opacity:1}
+.fan-opts{position:absolute;right:12px;top:10px;display:flex;gap:4px;z-index:6}
+.fan-opts .sbtn{padding:4px 8px;font:500 .72rem var(--f-mono)}
+
+/* 2 輪盤 */
+.wheel-stage{cursor:crosshair;touch-action:none;user-select:none}
+.wheel{position:absolute;width:240px;height:240px;margin:-120px 0 0 -120px;pointer-events:none;z-index:3}
+.wheel svg{width:100%;height:100%;overflow:visible}
+.wheel .sl{fill:#262A32;stroke:var(--st-bg);stroke-width:3;transition:fill .12s}
+.wheel .sl.on{fill:var(--st-acc)}
+.wheel .si{color:var(--st-fg);transition:color .12s}
+.wheel .si.on{color:#1A1406}
+.wheel .hub{fill:var(--st-bg);stroke:var(--st-line)}
+.wheel-label{position:absolute;left:50%;top:50%;translate:-50% -50%;font:700 .9rem/1.2 var(--f-ui);text-align:center;white-space:nowrap}
+.wheel-label small{display:block;font:500 .66rem var(--f-mono);color:var(--st-dim)}
+.wheel-hint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-size:.9rem;color:var(--st-dim);pointer-events:none;padding:20px;transition:opacity .15s}
+.wheel-stage.on .wheel-hint{opacity:0}
+.wheel-hint b{display:block;color:var(--st-fg);font-size:1.6rem;margin-bottom:4px}
+.wheel-key{position:absolute;right:12px;top:10px;z-index:6}
+
+/* 3 環形選單 */
+.ring-stage{touch-action:pan-y;user-select:none;cursor:grab}
+.ring-item{position:absolute;left:0;top:0;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:#2A2E37;border:1px solid var(--st-line);display:grid;place-items:center;color:var(--st-fg);will-change:transform}
+.ring-item.front{background:var(--st-acc);color:#1A1406;border-color:transparent;box-shadow:0 0 0 6px rgba(242,181,68,.18)}
+.ring-item .ico{width:26px;height:26px}
+.ring-label{position:absolute;left:0;right:0;bottom:44px;text-align:center;margin:0;z-index:5}
+.ring-label b{display:block;font:800 1.4rem/1.2 var(--f-ui)}
+.ring-label span{font-size:.8rem;color:var(--st-dim)}
+.ring-nav{position:absolute;top:44%;translate:0 -50%;width:38px;height:38px;border-radius:50%;padding:0;display:grid;place-items:center;z-index:6}
+.ring-nav.l{left:10px}.ring-nav.r{right:10px}
+
+/* 4 手牌 */
+.hand-zone{position:absolute;left:50%;top:14%;width:118px;height:150px;translate:-50% 0;border:1.5px dashed var(--st-line);border-radius:10px;display:grid;place-items:center;color:var(--st-dim);font-size:.76rem;text-align:center;transition:border-color .2s}
+.hand-zone.got{border-color:var(--st-acc)}
+.card{position:absolute;left:50%;bottom:-14px;width:96px;height:134px;margin-left:-48px;border-radius:9px;background:linear-gradient(160deg,#30343E,#22252C);border:1px solid #3A3F49;color:var(--st-fg);padding:10px 10px 12px;display:flex;flex-direction:column;gap:4px;text-align:left;cursor:pointer;transform-origin:50% 140%;transition:transform var(--spring-dur) var(--spring),box-shadow .2s;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.card .cn{font:700 .9rem/1.2 var(--f-ui)}
+.card .cp{font:600 .78rem var(--f-mono);color:var(--st-acc)}
+.card .cd{font-size:.68rem;color:var(--st-dim);line-height:1.4;margin-top:auto}
+.card.rec{background:linear-gradient(160deg,#4A3B1C,#2B2416);border-color:#6E5726}
+.card .tag{position:absolute;right:8px;top:8px;font:600 .58rem var(--f-mono);background:var(--st-acc);color:#1A1406;border-radius:3px;padding:1px 4px}
+.card:focus-visible{outline:2px solid var(--st-acc2);outline-offset:2px}
+.hand-reset{position:absolute;right:12px;top:10px;z-index:6}
+.hand-stage .stage-out{top:34px;bottom:auto;right:auto;max-width:calc(50% - 76px);line-height:1.45}
+
+/* 5 長按 */
+.hold-wrap{position:absolute;left:50%;top:46%;translate:-50% -50%;display:grid;place-items:center}
+.hold{--p:0;position:relative;width:132px;height:132px;border-radius:50%;border:0;background:#262A32;color:var(--st-fg);cursor:pointer;display:grid;place-items:center;text-align:center;font:700 .86rem/1.35 var(--f-ui);user-select:none;-webkit-user-select:none;touch-action:none;padding:16px}
+.hold::before{content:"";position:absolute;inset:-7px;border-radius:50%;background:conic-gradient(var(--st-bad) calc(var(--p) * 1turn),#30343C 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px))}
+.hold .ico{width:28px;height:28px;margin:0 auto 4px;color:var(--st-bad)}
+.hold.done{background:var(--st-bad);color:#2A0D09}
+.hold.done .ico{color:#2A0D09}
+.spark{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:var(--st-bad);pointer-events:none}
+
+/* 6 時機 */
+.tm-wrap{position:absolute;inset:0}
+.tm-target,.tm-ring{position:absolute;left:50%;top:42%;width:84px;height:84px;border-radius:50%;translate:-50% -50%}
+.tm-target{border:3px solid var(--st-fg);opacity:.9}
+.tm-target.flash{border-color:var(--st-acc);box-shadow:0 0 0 10px rgba(242,181,68,.2)}
+.tm-ring{border:3px solid var(--st-acc2);opacity:0}
+.tm-combo{position:absolute;right:16px;top:12px;text-align:right;z-index:5}
+.tm-combo b{display:block;font:800 1.9rem/1 var(--f-display)}
+.tm-combo span{font:500 .62rem var(--f-mono);letter-spacing:.14em;color:var(--st-dim)}
+.tm-float{position:absolute;left:50%;top:42%;font:800 1.1rem/1 var(--f-display);pointer-events:none;translate:-50% -50%;white-space:nowrap;z-index:6}
+.tm-ctl{position:absolute;left:0;right:0;bottom:36px;display:flex;justify-content:center;gap:8px;z-index:6}
+
+/* 7 磁吸 */
+.mag-row{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;padding:40px 20px}
+.mag{position:relative;appearance:none;border:0;cursor:pointer;border-radius:999px;padding:13px 22px;font:700 .92rem var(--f-ui);background:#2A2E37;color:var(--st-fg);will-change:transform}
+.mag.pri{background:var(--st-acc);color:#1A1406}
+.mag.ic{width:52px;height:52px;padding:0;display:grid;place-items:center}
+.mag .lbl{display:inline-flex;align-items:center;gap:6px;will-change:transform;pointer-events:none}
+.mag .field{position:absolute;left:50%;top:50%;width:220px;height:220px;margin:-110px;border-radius:50%;border:1px dashed rgba(236,232,223,.18);pointer-events:none;opacity:0;transition:opacity .2s}
+.mag-stage.show-field .mag .field{opacity:1}
+.mag-key{position:absolute;right:12px;top:10px;z-index:6}
+
+/* 8 形變 */
+.mo-card{position:absolute;left:8%;top:16%;width:min(46%,200px);display:grid;gap:8px}
+.mo-img{aspect-ratio:4/3;border-radius:8px;background:linear-gradient(135deg,#C49A52,#6E4E22 70%);position:relative;overflow:hidden}
+.mo-img::after{content:"";position:absolute;left:28%;top:22%;width:44%;height:60%;border:3px solid rgba(255,248,230,.75);border-top-width:0;border-radius:0 0 6px 6px}
+.mo-img::before{content:"";position:absolute;left:38%;top:12%;width:24%;height:22%;border:3px solid rgba(255,248,230,.75);border-bottom:0;border-radius:40px 40px 0 0}
+.mo-name{font-weight:700;font-size:.92rem;margin:0}
+.mo-price{font:600 .82rem var(--f-mono);color:var(--st-acc);margin:0}
+.mo-anchor{height:42px}
+.morph{position:absolute;background:var(--st-acc);color:#1A1406;overflow:hidden;z-index:4;border-radius:999px;
+  transition:left var(--spring-dur) var(--spring),top var(--spring-dur) var(--spring),width var(--spring-dur) var(--spring),height var(--spring-dur) var(--spring),border-radius var(--spring-dur) var(--spring),background .3s}
+.morph.open{background:#F3EEE2;border-radius:14px}
+.mo-face{position:absolute;inset:0;transition:opacity .14s linear}
+.mo-btn{appearance:none;border:0;background:none;width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:.9rem;cursor:pointer;color:#1A1406;white-space:nowrap}
+.mo-panel{padding:14px 16px;display:grid;gap:10px;align-content:start;opacity:0;visibility:hidden;color:#1E1A12;min-width:240px}
+.morph.open .mo-panel{opacity:1;visibility:visible;transition-delay:.12s}
+.morph.open .mo-btnface{opacity:0;visibility:hidden}
+.mo-ph{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.92rem}
+.mo-ph .ico{color:#2E8A4E;width:20px;height:20px}
+.mo-x{margin-left:auto;appearance:none;border:0;background:none;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:6px;color:#1E1A12}
+.mo-row{display:flex;align-items:center;gap:10px;font-size:.84rem}
+.mo-th{width:38px;height:30px;border-radius:5px;background:linear-gradient(135deg,#C49A52,#6E4E22)}
+.mo-qty{margin-left:auto;display:flex;align-items:center;gap:2px;border:1px solid #D8CFBC;border-radius:6px}
+.mo-qty button{appearance:none;border:0;background:none;width:28px;height:28px;cursor:pointer;color:#1E1A12}
+.mo-qty output{min-width:1.4em;text-align:center;font:600 .84rem var(--f-mono)}
+.mo-act{display:flex;gap:8px}
+.mo-act button{flex:1;appearance:none;border:1px solid #D8CFBC;background:#fff;border-radius:7px;padding:8px;cursor:pointer;font-weight:700;font-size:.82rem;color:#1E1A12}
+.mo-act .go{background:#1E1A12;color:#F3EEE2;border-color:#1E1A12}
+
+/* 9 伸縮頁籤 */
+.tabs{position:absolute;left:50%;top:22%;translate:-50% 0;display:flex;padding:4px;border-radius:999px;background:#262A32;border:1px solid var(--st-line)}
+.tab{position:relative;z-index:1;appearance:none;border:0;background:none;padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:700;font-size:.84rem;color:var(--st-dim);white-space:nowrap;transition:color .2s}
+.tab[aria-selected="true"]{color:#1A1406}
+.tab small{font:500 .7rem var(--f-mono);margin-left:4px;opacity:.75}
+.tab-ind{position:absolute;top:4px;bottom:4px;left:0;width:0;border-radius:999px;background:var(--st-acc)}
+.tab-panel{position:absolute;left:12%;right:12%;top:40%;margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.tab-panel li{display:flex;align-items:center;gap:10px;font-size:.84rem;background:#22252C;border:1px solid var(--st-line);border-radius:7px;padding:7px 10px}
+.tab-panel li i{width:8px;height:8px;border-radius:50%;background:var(--c,var(--st-dim));flex:none}
+
+/* 10 拖曳停靠 */
+.dock-stage{touch-action:none;user-select:none}
+.cols{position:absolute;left:12px;right:12px;top:38px;bottom:34px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.col{border-radius:9px;background:rgba(255,255,255,.03);border:1px solid var(--st-line);padding:8px;display:flex;flex-direction:column;gap:6px;transition:background .2s,border-color .2s}
+.col h4{margin:0;font:600 .72rem var(--f-mono);letter-spacing:.06em;color:var(--st-dim)}
+.col.hot{background:rgba(242,181,68,.08);border-color:rgba(242,181,68,.5)}
+.col .ghost{height:58px;border-radius:7px;border:1px dashed var(--st-line)}
+.chip{position:absolute;left:0;top:0;width:var(--w,120px);height:58px;border-radius:8px;background:var(--st-fg);color:var(--st-bg);padding:8px 10px;display:grid;align-content:center;gap:2px;cursor:grab;z-index:4;will-change:transform;box-shadow:0 6px 14px rgba(0,0,0,.35);touch-action:none}
+.chip b{font-size:.84rem;line-height:1.2}
+.chip span{font:500 .66rem var(--f-mono);color:#5A5E66}
+.chip.drag{cursor:grabbing;box-shadow:0 18px 30px rgba(0,0,0,.45)}
+
+/* 11 傾斜卡 */
+.tilt-stage{perspective:900px;display:grid;place-items:center}
+.tcard{position:relative;width:min(70%,260px);aspect-ratio:1.586;border-radius:14px;background:linear-gradient(135deg,#3A2E16,#151208 60%,#2D2410);border:1px solid #5C4A22;color:#F3E2B6;padding:16px 18px;display:grid;align-content:space-between;transform-style:preserve-3d;will-change:transform;box-shadow:0 20px 40px rgba(0,0,0,.45)}
+.tcard .t1{font:800 .9rem/1 var(--f-display);letter-spacing:.06em}
+.tcard .t2{font:700 1.4rem/1.1 var(--f-ui)}
+.tcard .t3{display:flex;justify-content:space-between;font:500 .7rem var(--f-mono);color:#C9B27A}
+.tcard .chipi{width:36px;height:26px;border-radius:5px;background:linear-gradient(135deg,#E8C977,#9C7A33);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+.tcard .glare{position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,248,225,.38),transparent 45%);mix-blend-mode:screen;pointer-events:none}
+.tcard .holo{position:absolute;inset:0;border-radius:inherit;background:repeating-linear-gradient(115deg,rgba(255,90,90,.0) 0%,rgba(255,200,90,.22) 8%,rgba(120,255,180,.2) 16%,rgba(110,170,255,.22) 24%,rgba(220,120,255,.2) 32%,rgba(255,90,90,0) 40%);background-size:220% 220%;background-position:var(--hx,50%) var(--hy,50%);mix-blend-mode:color-dodge;opacity:var(--ho,.15);pointer-events:none}
+.tcard > *:not(.glare):not(.holo){transform:translateZ(24px)}
+
+/* 12 鏡頭推進 */
+.zm-grid{position:absolute;left:12px;right:12px;top:36px;bottom:30px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:8px}
+.zm-tile{appearance:none;border:0;border-radius:9px;background:var(--bgc);color:#F6F1E6;cursor:pointer;padding:10px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;text-align:left;gap:2px;position:relative;overflow:hidden}
+.zm-tile b{font-size:.86rem;line-height:1.2}
+.zm-tile span{font:500 .64rem var(--f-mono);opacity:.8}
+.zm-tile::before{content:"";position:absolute;right:-18%;top:-24%;width:70%;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.12)}
+.zm-panel{position:absolute;inset:0;z-index:5;background:var(--bgc);color:#F6F1E6;transform-origin:0 0;padding:18px 20px;display:grid;align-content:start;gap:10px;overflow:hidden}
+.zm-panel .zc{opacity:0;display:grid;gap:10px}
+.zm-panel h4{margin:0;font:800 1.5rem/1.15 var(--f-ui)}
+.zm-panel p{margin:0;font-size:.86rem;line-height:1.65;max-width:42ch;opacity:.92}
+.zm-stats{display:flex;gap:18px;flex-wrap:wrap}
+.zm-stats div{display:grid}
+.zm-stats b{font:800 1.3rem/1.1 var(--f-display)}
+.zm-stats span{font:500 .66rem var(--f-mono);opacity:.8}
+.zm-back{justify-self:start;appearance:none;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.2);color:#F6F1E6;border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:.82rem}
+
+/* ═════ 第二批：系統型動態 ═════ */
+.sec-p{margin:-16px 0 0;color:var(--muted);max-width:72ch;font-size:.92rem}
+#specimens2{grid-auto-flow:dense}
+/* aspect-ratio 會把 min-height 轉成 min-width（340px 高 × 4/3 → 453px 寬，撐破卡片），所以第二批改用固定高度 */
+#specimens2 .stage{aspect-ratio:auto;min-height:0;height:var(--sh,300px)}
+@media (min-width:860px){ .sp.wide{grid-column:span 2} #specimens2 .sp.wide .stage{aspect-ratio:2/1;height:auto;max-height:440px} }
+.sbtn[aria-disabled="true"]{opacity:.42;cursor:not-allowed}
+.sbtn .ico{width:16px;height:16px}
+
+/* 13 回合順序條 */
+.turn-stage{--sh:330px;container-type:inline-size}
+.tq-wrap{position:absolute;left:14px;right:14px;top:36px;bottom:34px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.tq-row{position:relative;display:flex;align-items:flex-end;gap:8px;height:116px;flex:none}
+.tq-tok{position:relative;flex:1 1 0;min-width:0;height:94px;border-radius:8px;background:#262A32;border:1px solid var(--st-line);padding:8px;display:flex;flex-direction:column;gap:1px;cursor:pointer;transform-origin:0 0;user-select:none;overflow:hidden}
+.tq-tok.now{flex-grow:1.8;height:116px;background:linear-gradient(170deg,#4A3B1C,#2B2416);border-color:#6E5726}
+.tq-tok[aria-selected="true"]{box-shadow:inset 0 0 0 2px var(--st-acc2)}
+.tq-tok:focus-visible{outline:2px solid var(--st-fg);outline-offset:2px}
+.tq-av{width:26px;height:26px;border-radius:50%;background:#3A3F49;display:grid;place-items:center;font-weight:700;font-size:.8rem;margin-bottom:auto;flex:none}
+.tq-tok.now .tq-av{background:var(--st-acc);color:#1A1406}
+.tq-n{font-weight:700;font-size:.8rem;line-height:1.3}
+.tq-n,.tq-q,.tq-w{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tq-q{font-size:.68rem;color:var(--st-dim);line-height:1.3}
+.tq-w{font:500 .62rem var(--f-mono);color:var(--st-dim)}
+.tq-tok.now::after{content:"處理中";position:absolute;right:7px;top:8px;font:600 .58rem var(--f-mono);background:var(--st-acc);color:#1A1406;border-radius:3px;padding:1px 5px}
+.tq-tok.leave{position:absolute;margin:0;pointer-events:none;z-index:3}
+.tq-gw{display:flex;align-items:center;gap:10px;flex:none}
+.tq-gl{font:500 .62rem var(--f-mono);letter-spacing:.1em;color:var(--st-dim);flex:none}
+.tq-ghost{flex:1;display:flex;gap:6px;min-width:0;opacity:.4;transition:opacity .2s}
+.turn-stage.previewing .tq-ghost{opacity:1}
+.tq-g{position:relative;flex:1 1 0;min-width:0;height:32px;border:1.5px dashed #4A4F59;border-radius:6px;display:grid;place-items:center;font-weight:700;font-size:.78rem;color:var(--st-dim);transform-origin:0 0}
+.tq-g.now{flex-grow:1.8;border-color:rgba(242,181,68,.6);color:var(--st-acc)}
+.tq-g.hot{border-style:solid;border-color:var(--st-acc2);color:var(--st-fg);background:rgba(125,184,255,.14)}
+.tq-g.new{border-color:var(--st-good);color:var(--st-good)}
+.tq-g b{position:absolute;top:-9px;right:-3px;font:600 .58rem/1.4 var(--f-mono);background:var(--st-acc2);color:#0B1A2E;border-radius:3px;padding:0 4px}
+.tq-g.new b{background:var(--st-good);color:#0D2412}
+.tq-g b:empty{display:none}
+.tq-act{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+.tq-act .sbtn{display:flex;align-items:center;gap:6px}
+@container (max-width:460px){ .tq-tok:not(.now) .tq-q,.tq-tok:not(.now) .tq-n{display:none} .tq-tok{padding:7px 6px} .tq-row{gap:6px} .tq-tok:not(.now) .tq-w{font-size:.54rem} .tq-tok.now::after{top:0;right:0;border-radius:0 7px 0 5px;font-size:.54rem;padding:1px 4px} }
+
+/* 14 連擊與連鎖 */
+.combo-stage{--sh:300px;container-type:inline-size}
+.cb-list{position:absolute;left:12px;top:36px;width:calc(62% - 12px);margin:0;padding:0;list-style:none}
+.cb-list li{margin-bottom:6px;overflow:hidden}
+.cb-row{width:100%;appearance:none;border:1px solid var(--st-line);background:#22252C;color:var(--st-fg);border-radius:7px;padding:7px 10px;display:flex;align-items:center;gap:9px;cursor:pointer;text-align:left;font-size:.82rem;transition:background .15s}
+.cb-row:hover{background:#2A2E37}
+.cb-row span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cb-box{width:18px;height:18px;border-radius:4px;border:1.5px solid #5A5F6A;display:grid;place-items:center;flex:none;color:transparent}
+.cb-box .ico{width:14px;height:14px;stroke-width:3}
+.cb-list li.done .cb-row{background:transparent;color:var(--st-dim)}
+.cb-list li.done .cb-row span{text-decoration:line-through}
+.cb-list li.done .cb-box{background:var(--st-good);border-color:var(--st-good);color:#0D2412}
+.cb-hud{position:absolute;right:14px;top:36px;width:calc(38% - 26px);display:grid;justify-items:end;gap:6px;text-align:right}
+.cb-x{font:800 clamp(2rem,13cqi,3.4rem)/1 var(--f-display);transform-origin:100% 60%;transition:color .2s;font-variant-numeric:tabular-nums}
+.cb-x[data-h="0"]{color:var(--st-fg)}.cb-x[data-h="1"]{color:var(--st-acc2)}.cb-x[data-h="2"]{color:var(--st-good)}.cb-x[data-h="3"]{color:var(--st-acc)}.cb-x[data-h="4"]{color:#FF9F5A}
+.cb-lab{font:600 .62rem var(--f-mono);letter-spacing:.16em;color:var(--st-dim)}
+.cb-bar{width:100%;height:8px;border-radius:4px;background:#2A2E37;overflow:hidden;display:block}
+.cb-bar i{display:block;height:100%;background:var(--st-acc);transform-origin:0 50%;transform:scaleX(0)}
+.cb-pts{font:600 .8rem var(--f-mono);color:var(--st-dim)}
+.cb-hud.broke .cb-x{color:var(--st-bad);text-decoration:line-through;text-decoration-thickness:3px}
+.cb-hud.broke .cb-bar{box-shadow:0 0 0 1.5px var(--st-bad)}
+.cb-float{position:absolute;font:800 .95rem/1 var(--f-display);color:var(--st-acc);pointer-events:none;z-index:6;white-space:nowrap}
+
+/* 15 技能樹 */
+.tree-stage{--sh:340px}
+.tr-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.tr-e{fill:none;stroke:#3E434D;stroke-width:2;stroke-dasharray:4 5}
+.tr-p{fill:none;stroke:var(--st-acc);stroke-width:2.5;stroke-linecap:round;opacity:0}
+.tr-p.on{opacity:1}
+.tr-node{position:absolute;translate:-50% -18px;appearance:none;border:0;background:none;padding:0 4px 4px;color:var(--st-fg);display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;z-index:2;border-radius:8px}
+.tr-dot{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--st-bg);border:2px solid #4A4F59;color:var(--st-dim)}
+.tr-dot .ico{width:18px;height:18px}
+.tr-node[data-s="open"] .tr-dot{border-color:var(--st-acc);color:var(--st-acc);background:#2B2416}
+.tr-node[data-s="open"] .tr-dot i{width:10px;height:10px;border-radius:50%;background:var(--st-acc)}
+.tr-node[data-s="done"] .tr-dot{background:var(--st-acc);border-color:var(--st-acc);color:#1A1406}
+.tr-node[data-s="done"] .tr-dot .ico{stroke-width:2.6}
+.tr-l{font-size:.72rem;font-weight:700;white-space:nowrap;line-height:1.25;padding:1px 5px;border-radius:4px;background:rgba(23,25,30,.85)}
+.tr-node[data-s="lock"] .tr-l{color:var(--st-dim);font-weight:500}
+.tr-node:focus-visible{outline:2px solid var(--st-acc2);outline-offset:2px}
+.tr-burst{position:absolute;left:50%;top:18px;width:36px;height:36px;border-radius:50%;border:2px solid var(--st-acc);pointer-events:none}
+.tr-reset{position:absolute;right:12px;top:10px;z-index:6}
+
+/* 16 數字滾輪與實體化進度 */
+.odo-stage{--sh:300px;container-type:inline-size}
+.od-main{position:absolute;left:16px;top:36px;bottom:34px;width:calc(62% - 22px);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0}
+.od-l{margin:0;font:500 .7rem var(--f-mono);letter-spacing:.1em;color:var(--st-dim)}
+.od-num{--dh:1.12em;margin:0;display:flex;align-items:flex-start;font:800 clamp(1.4rem,9cqi,2.4rem)/1.12 var(--f-display);white-space:nowrap}
+.od-cur{font-size:.4em;margin:.32em .32em 0 0;color:var(--st-dim);line-height:1}
+.od-cols{display:flex}
+.od-c{display:block;height:var(--dh);overflow:hidden;transition:opacity .3s}
+.od-s{display:flex;flex-direction:column;transition:transform var(--spring-dur) var(--spring)}
+.od-s i{font-style:normal;height:var(--dh);display:block;text-align:center}
+.od-sep{width:.3em;text-align:center;transition:opacity .3s}
+.od-c.lead,.od-sep.lead{opacity:.2}
+.od-goal{margin:0;font-size:.8rem;color:var(--st-dim)}
+.od-goal b{color:var(--st-fg);font:600 .8rem var(--f-mono)}
+.od-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.od-jar{position:absolute;right:14px;top:34px;bottom:34px;width:31%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.od-jar svg{width:100%;max-width:150px;height:auto;max-height:calc(100% - 24px);overflow:visible}
+.od-glass{fill:rgba(255,255,255,.04)}
+.od-liq{fill:var(--st-acc)}
+.od-liq2{fill:#FFE0A0;opacity:.32}
+.od-out{fill:none;stroke:var(--st-fg);stroke-width:2.2;opacity:.75}
+.od-gl{stroke:var(--st-fg);stroke-width:1.2;stroke-dasharray:3 3;opacity:.55}
+.od-pct{font:700 .9rem var(--f-mono)}
+
+/* 17 世界地圖式導覽 */
+.map-stage{--sh:340px}
+.mp-view{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab}
+.mp-view.grab{cursor:grabbing}
+.mp-view:focus-visible{outline:2px solid var(--st-acc2);outline-offset:-4px}
+.mp-plane{position:absolute;left:0;top:0;border-radius:16px;background-color:#1B2029;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:80px 80px;will-change:transform}
+.mp-plane svg{position:absolute;inset:0;overflow:visible}
+.mp-land path{fill:rgba(255,255,255,.04);stroke:rgba(255,255,255,.13);stroke-width:1.5}
+.mp-land path.in{fill:none;stroke-dasharray:2 5;stroke:rgba(255,255,255,.1)}
+.mp-route{fill:none;stroke:#59606C;stroke-width:3;stroke-dasharray:2 9;stroke-linecap:round}
+.mp-done{fill:none;stroke:var(--st-acc);stroke-width:3.5;stroke-linecap:round}
+.mp-stop{position:absolute;translate:-50% -16px;appearance:none;border:0;background:none;padding:6px;color:var(--st-fg);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:8px;z-index:2}
+.mp-pin{width:20px;height:20px;border-radius:50%;border:2.5px solid #6A707C;background:#1B2029}
+.mp-stop[data-s="done"] .mp-pin{background:var(--st-acc);border-color:var(--st-acc)}
+.mp-stop[data-s="here"] .mp-pin{border-color:var(--st-acc);box-shadow:inset 0 0 0 4px #1B2029,inset 0 0 0 10px var(--st-acc)}
+.mp-sl{font-size:.74rem;font-weight:700;background:rgba(15,17,21,.82);padding:2px 7px 3px;border-radius:5px;white-space:nowrap;text-align:center;line-height:1.35;border:1px solid transparent}
+.mp-sl small{display:block;font:500 .58rem var(--f-mono);color:var(--st-dim);letter-spacing:.06em}
+.mp-stop.cur .mp-sl{border-color:var(--st-acc2)}
+.mp-stop:focus-visible{outline:2px solid var(--st-acc2);outline-offset:0}
+.mp-me{position:absolute;left:0;top:0;width:34px;height:34px;margin:-17px;border-radius:50%;border:2px solid var(--st-acc2);background:rgba(125,184,255,.16);pointer-events:none;z-index:1}
+.mp-list{position:absolute;left:12px;right:12px;top:34px;bottom:80px;overflow-y:auto;scrollbar-width:thin}
+.mp-list ol{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.mp-list button{width:100%;appearance:none;display:flex;align-items:center;gap:10px;text-align:left;background:#22252C;border:1px solid var(--st-line);border-radius:7px;padding:6px 10px;cursor:pointer;color:var(--st-fg)}
+.mp-list small{display:block;font:500 .62rem var(--f-mono);color:var(--st-dim)}
+.mp-list b{font-size:.84rem}
+.mp-ls{width:12px;height:12px;border-radius:50%;border:2px solid #6A707C;flex:none}
+.mp-ls[data-s="done"]{background:var(--st-acc);border-color:var(--st-acc)}
+.mp-ls[data-s="here"]{border-color:var(--st-acc);box-shadow:inset 0 0 0 2px var(--st-bg),inset 0 0 0 6px var(--st-acc)}
+.mp-bar{position:absolute;left:12px;right:12px;bottom:34px;display:flex;gap:6px;z-index:6;flex-wrap:wrap}
+.mp-seg{display:flex;gap:4px;margin-left:auto}
+.map-stage .stage-out{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.map-stage::after{content:"";position:absolute;left:0;right:0;bottom:0;height:92px;background:linear-gradient(transparent,var(--st-bg) 62%);pointer-events:none;z-index:4}
+
+/* 18 對話式選項 */
+.chat-stage{--sh:340px}
+.ch-thread{position:absolute;left:12px;right:12px;top:30px;bottom:108px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:8px;padding:14px 2px 4px;-webkit-mask:linear-gradient(transparent,#000 24px);mask:linear-gradient(transparent,#000 24px)}
+.ch-thread::-webkit-scrollbar{display:none}
+.ch-thread > :first-child{margin-top:auto}
+.ch-m{max-width:80%;padding:8px 12px;border-radius:14px;font-size:.84rem;line-height:1.5;flex:none}
+.ch-m.bot{align-self:flex-start;background:#262A32;border:1px solid var(--st-line);border-bottom-left-radius:4px;transform-origin:0 100%}
+.ch-m.me{align-self:flex-end;background:var(--st-acc);color:#1A1406;border-bottom-right-radius:4px;font-weight:700;transform-origin:100% 100%}
+.ch-m.typing{display:flex;gap:4px;padding:12px 14px}
+.ch-m.typing i{width:6px;height:6px;border-radius:50%;background:var(--st-dim);animation:chDot 1s infinite}
+.ch-m.typing i:nth-child(2){animation-delay:.15s}.ch-m.typing i:nth-child(3){animation-delay:.3s}
+.ch-m.typing.still i{animation:none}
+@keyframes chDot{0%,60%,100%{opacity:.3;translate:0 0}30%{opacity:1;translate:0 -3px}}
+@media (prefers-reduced-motion: reduce){ .ch-m.typing i{animation:none} }
+.ch-opts{position:absolute;left:12px;right:12px;bottom:12px;height:88px;display:flex;flex-wrap:wrap;justify-content:flex-end;align-content:flex-end;gap:6px}
+.ch-opts:focus{outline:none}
+.ch-o{appearance:none;border:1.5px solid var(--st-acc);background:rgba(242,181,68,.06);color:var(--st-acc);border-radius:14px;padding:6px 12px;font-weight:700;font-size:.84rem;cursor:pointer;transform-origin:100% 100%;line-height:1.5}
+.ch-o:hover,.ch-o:focus-visible{background:rgba(242,181,68,.18)}
+.ch-o:focus-visible{outline:2px solid var(--st-fg);outline-offset:2px}
+.ch-fly{position:absolute;margin:0;z-index:8;pointer-events:none;transform-origin:0 0;max-width:none}
+
+.foot{color:var(--muted);font-size:.84rem;max-width:72ch}
+</style>
+
+<div class="lab">
+  <header class="head">
+    <h1>動態 UI 實驗室</h1>
+    <p>遊戲 UI 不死板，是因為每個元件都有「從哪裡來、怎麼走、走多快、怎麼停」的答案。下面把這些答案拆成七個軸，再用 18 個可以直接操作的模式示範：第一批是單一元件的動態，第二批是整個系統（佇列、進度、導覽、對話）的動態。所有模式共用同一組彈簧參數，切換「能量」可以看同一個模式變成不同性格。</p>
+  </header>
+
+  <div class="ctl" role="region" aria-label="動態參數">
+    <div class="ctl-group">
+      <span class="ctl-l" id="lbl-energy">能量</span>
+      <div class="seg" role="group" aria-labelledby="lbl-energy" id="energy"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="rm"> 減少動態</label>
+    <div class="curve">
+      <svg viewBox="0 0 150 46" aria-hidden="true"><path class="tgt" d="M0,12 H150"/><path class="crv" id="crv"/></svg>
+      <div class="curve-meta"><span id="crv-meta"></span><button type="button" class="copy" id="copy">複製 CSS easing</button></div>
+    </div>
+  </div>
+
+  <section class="grammar" aria-labelledby="g-h">
+    <h2 id="g-h">動態語法：讓 UI 不死板的七個軸</h2>
+    <ul class="axes">
+      <li class="ax" data-ax="origin"><b>起點<small>Origin</small></b><span>東西從哪裡長出來：從按下的按鈕、從螢幕邊緣、從游標所在的位置。沒有起點的東西只能憑空淡入。</span></li>
+      <li class="ax" data-ax="path"><b>路徑<small>Path</small></b><span>移動的軌跡：直線、弧線、繞圈、拋物線。弧線讓排列有方向感，扇形和手牌都靠它。</span></li>
+      <li class="ax" data-ax="rhythm"><b>節奏<small>Rhythm</small></b><span>一群元素依什麼順序出場：由近到遠、由中心向外、依序、亂序。收合時通常反過來。</span></li>
+      <li class="ax" data-ax="physics"><b>物理<small>Physics</small></b><span>用彈簧的剛度與阻尼取代固定時長，讓動作可以被打斷、可以回彈，也帶有慣性。</span></li>
+      <li class="ax" data-ax="input"><b>輸入映射<small>Input</small></b><span>把游標角度、距離、按住時間、拖曳速度直接變成 UI 參數，而不只是「點了就觸發」。</span></li>
+      <li class="ax" data-ax="cont"><b>連續性<small>Continuity</small></b><span>元素在狀態之間保持身分：按鈕變成面板、方塊推進成整頁，使用者看得出「它去哪了」。</span></li>
+      <li class="ax" data-ax="fb"><b>回饋<small>Feedback</small></b><span>打擊感：瞬間停頓、震動、粒子、浮字、數字跳動。成功和失敗要有不同的手感。</span></li>
+    </ul>
+  </section>
+
+  <h2 class="sec-h">第一批：元件型動態</h2>
+  <div class="specimens" id="specimens"></div>
+
+  <h2 class="sec-h">第二批：系統型動態</h2>
+  <p class="sec-p">元件型動態回答「這顆按鈕怎麼動」；系統型動態回答「一群東西的關係怎麼變」：誰排前面、哪些解鎖了、我走到哪裡、累積了多少、剛剛選了什麼。這類動態的重點是讓使用者在變化發生前看得到後果，發生時追得到每個東西去了哪裡。</p>
+  <div class="specimens" id="specimens2"></div>
+
+  <p class="foot">減少動態開啟時（或系統設定偏好減少動態），彈簧改成瞬間到位，震動、粒子、傾斜全部停用，但每個模式的功能都還能用。所有模式都能只靠鍵盤操作。</p>
+  <p class="vh" aria-live="polite" id="live"></p>
+</div>
+
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const live = $('#live');
+const say = t => { live.textContent = ''; setTimeout(() => live.textContent = t, 30); };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rnd = (i, s = 1) => { const x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
+
+/* ═════════ 能量：一組彈簧參數驅動全部 ═════════ */
+const ENERGY = {
+  calm:  { name: '克制', k: 260, c: 32, stagger: 16, press: .97, pull: .16, tilt: 6,  shake: 2, sparks: 6 },
+  std:   { name: '標準', k: 320, c: 21, stagger: 36, press: .94, pull: .3,  tilt: 11, shake: 5, sparks: 12 },
+  wild:  { name: '誇張', k: 420, c: 11, stagger: 62, press: .86, pull: .46, tilt: 18, shake: 10, sparks: 22 }
+};
+const mqRM = matchMedia('(prefers-reduced-motion: reduce)');
+const S = { e: 'std', rm: mqRM.matches, easing: 'ease-out', dur: 500 };
+try { const v = localStorage.getItem('dyn-energy'); if (ENERGY[v]) S.e = v; } catch (e) {}
+const E = () => ENERGY[S.e];
+const supportsLinear = CSS.supports('transition-timing-function', 'linear(0, 1)');
+
+function simulate(k, c) {
+  let x = 0, v = 0, t = 0; const dt = 1 / 240, pts = [];
+  for (let i = 0; i < 2400; i++) {
+    const f = -k * (x - 1) - c * v; v += f * dt; x += v * dt; t += dt; pts.push(x);
+    if (t > .12 && Math.abs(x - 1) < .0015 && Math.abs(v) < .02) break;
+  }
+  return { pts, dur: Math.round(t * 1000) };
+}
+function applyEnergy() {
+  const e = E(), { pts, dur } = simulate(e.k, e.c), N = 44;
+  const samp = Array.from({ length: N + 1 }, (_, i) => pts[Math.min(pts.length - 1, Math.round(i / N * (pts.length - 1)))]);
+  samp[N] = 1;
+  S.easing = supportsLinear ? `linear(${samp.map(n => +n.toFixed(4)).join(', ')})` : 'cubic-bezier(.2,.9,.3,1.15)';
+  S.dur = dur;
+  const root = document.documentElement.style;
+  root.setProperty('--spring', S.easing);
+  root.setProperty('--spring-dur', S.rm ? '1ms' : dur + 'ms');
+  root.setProperty('--stagger', S.rm ? '0ms' : e.stagger + 'ms');
+  root.setProperty('--press', S.rm ? '1' : e.press);
+  const maxY = Math.max(...samp), y = v => 40 - (v / Math.max(1.05, maxY)) * 28;
+  $('#crv').setAttribute('d', 'M' + samp.map((v, i) => `${(i / N * 150).toFixed(1)},${y(v).toFixed(1)}`).join(' L'));
+  $('.tgt').setAttribute('d', `M0,${y(1).toFixed(1)} H150`);
+  const over = Math.max(0, (maxY - 1) * 100);
+  $('#crv-meta').textContent = `k ${e.k} · c ${e.c} · ${dur} ms · 過衝 ${over.toFixed(0)}%`;
+  $('#energy').innerHTML = Object.entries(ENERGY).map(([key, v]) => `<button type="button" data-e="${key}" aria-pressed="${key === S.e}">${v.name}</button>`).join('');
+}
+$('#energy').addEventListener('click', ev => { const b = ev.target.closest('[data-e]'); if (!b) return; S.e = b.dataset.e; try { localStorage.setItem('dyn-energy', S.e); } catch (e) {} applyEnergy(); $(`#energy [data-e=${S.e}]`).focus(); });
+const rmBox = $('#rm'); rmBox.checked = S.rm;
+rmBox.addEventListener('change', () => { S.rm = rmBox.checked; applyEnergy(); });
+$('#copy').addEventListener('click', async () => {
+  const text = `transition-timing-function: ${S.easing};\ntransition-duration: ${S.dur}ms;`;
+  try { await navigator.clipboard.writeText(text); $('#copy').textContent = '已複製'; }
+  catch (e) { $('#copy').textContent = '複製失敗，請到開發者工具讀 --spring'; }
+  setTimeout(() => $('#copy').textContent = '複製 CSS easing', 1600);
+});
+const wa = (el, kf, o = {}) => { try { return el.animate(kf, { duration: S.rm ? 1 : S.dur, easing: S.easing, fill: 'both', ...o, ...(S.rm ? { duration: 1, delay: 0 } : {}) }).finished.catch(() => {}); } catch (e) { return Promise.resolve(); } };
+
+/* 連續彈簧：給拖曳、磁吸、傾斜、轉盤這類跟手的互動 */
+class Spring {
+  constructor(x = 0, eps = .05) { this.x = x; this.v = 0; this.t = x; this.eps = eps; }
+  step(dt, kMul = 1, cMul = 1) {
+    if (S.rm) { this.x = this.t; this.v = 0; return false; }
+    const k = E().k * kMul, c = E().c * cMul, n = 4, h = dt / n;
+    for (let i = 0; i < n; i++) { const f = -k * (this.x - this.t) - c * this.v; this.v += f * h; this.x += this.v * h; }
+    if (Math.abs(this.x - this.t) < this.eps && Math.abs(this.v) < this.eps * 4) { this.x = this.t; this.v = 0; return false; }
+    return true;
+  }
+}
+function loop(step) {
+  let id = null, last = 0;
+  const tick = now => { const dt = Math.min(.034, (now - last) / 1000); last = now; id = step(dt) ? requestAnimationFrame(tick) : null; };
+  return () => { if (!id) { last = performance.now(); id = requestAnimationFrame(tick); } };
+}
+function shake(el, mul = 1) {
+  if (S.rm) return;
+  const a = E().shake * mul;
+  el.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${-a}px,${a * .6}px)` }, { transform: `translate(${a * .8}px,${-a * .5}px)` }, { transform: `translate(${-a * .4}px,${a * .3}px)` }, { transform: 'translate(0,0)' }], { duration: 220, easing: 'steps(5)' });
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rectIn = (el, st) => { const s = st.getBoundingClientRect(), r = el.getBoundingClientRect(); return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height }; };
+/* FLIP：先量 First → 取消進行中的位移動畫 → 改 DOM → 量 Last → 從差值彈回 none。
+   沒有 First 的元素是新進場的，用 o.enter 的關鍵影格；被 FLIP 的元素 CSS 要設 transform-origin:0 0 */
+function flip(getEls, mutate, o = {}) {
+  const first = new Map(getEls().map(el => [el, el.getBoundingClientRect()]));
+  first.forEach((_, el) => el.getAnimations().forEach(a => a.cancel()));
+  mutate();
+  const runs = [];
+  getEls().forEach((el, i) => {
+    const f = first.get(el), delay = o.delay ? o.delay(el, i) : 0;
+    if (!f) { if (o.enter) runs.push(wa(el, o.enter, { delay })); return; }
+    const l = el.getBoundingClientRect();
+    const dx = f.left - l.left, dy = f.top - l.top, sx = l.width ? f.width / l.width : 1, sy = l.height ? f.height / l.height : 1;
+    if (Math.abs(dx) < .5 && Math.abs(dy) < .5 && Math.abs(sx - 1) < .01 && Math.abs(sy - 1) < .01) return;
+    runs.push(wa(el, [{ transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})` }, { transform: 'none' }], { delay }));
+  });
+  return Promise.all(runs);
+}
+/* 空間導覽：方向鍵移到該方向上「最近且最對齊」的節點 */
+function spatial(nodes, cur, key) {
+  const dir = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] }[key];
+  if (!dir) return null;
+  const c = cur.getBoundingClientRect(), cx = c.left + c.width / 2, cy = c.top + c.height / 2;
+  let best = null, bd = Infinity;
+  nodes.forEach(n => {
+    if (n === cur) return;
+    const r = n.getBoundingClientRect(), dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
+    const along = dx * dir[0] + dy * dir[1]; if (along <= 4) return;
+    const d = along + Math.abs(dx * dir[1] - dy * dir[0]) * 2;
+    if (d < bd) { bd = d; best = n; }
+  });
+  return best;
+}
+
+/* ═════════ 圖示 ═════════ */
+const ICONS = {
+  plus: 'M12 5v14M5 12h14', doc: 'M6 3h8l4 4v14H6zM14 3v4h4M9 14h6M12 11v6', camera: 'M4 8h4l2-3h4l2 3h4v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
+  mic: 'M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM6 11a6 6 0 0 0 12 0M12 17v4', check: 'M4 5h16v14H4zM8 12l3 3 5-6', userplus: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21c1-4 4-6 7-6s6 2 7 6M19 8v6M16 11h6',
+  brush: 'M18 3l3 3-9 9-3-3zM9 12c-3 0-4 2-4 4 0 1.5-1 2.5-2 3 3 1 7 0 8-3', eraser: 'M4 15l9-9 7 7-6 6H8zM9 19h11', select: 'M5 3l13 7-6 2-2 6z', text: 'M5 5h14M12 5v14M9 19h6',
+  shape: 'M4 4h9v9H4zM16 11a5 5 0 1 1 0 10 5 5 0 0 1 0-10z', dropper: 'M15 4l5 5-2 2-5-5zM13 6l-8 8v5h5l8-8', move: 'M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3',
+  zoom: 'M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM15 15l6 6M7 10h6M10 7v6', clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2', slow: 'M3 12a9 9 0 0 1 9-9M6 12a6 6 0 0 1 6-6M9 12a3 3 0 0 1 3-3M12 12l6 6',
+  rec: 'M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z', person: 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4.5 4-7 8-7s7 2.5 8 7', moon: 'M20 14a8 8 0 1 1-10-10 6.5 6.5 0 0 0 10 10z',
+  pano: 'M3 7c6-2 12-2 18 0v10c-6-2-12-2-18 0z', x: 'M6 6l12 12M18 6L6 18', bag: 'M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2', trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6',
+  left: 'M15 5l-7 7 7 7', right: 'M9 5l7 7-7 7', arrow: 'M5 12h14M13 6l6 6-6 6', play: 'M7 5l12 7-12 7z', heart: 'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z',
+  ok: 'M5 12.5l4.5 4.5L19 7', lock: 'M6 11h12v10H6zM9 11V8a3 3 0 0 1 6 0v3', up: 'M12 19V5M6 11l6-6 6 6', down: 'M12 5v14M6 13l6 6 6-6'
+};
+const ic = (n, cls = 'ico') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n]}"${n === 'rec' ? ' fill="currentColor"' : ''}/></svg>`;
+
+/* ═════════ 標本定義 ═════════ */
+const AX = { origin: '起點', path: '路徑', rhythm: '節奏', physics: '物理', input: '輸入映射', cont: '連續性', fb: '回饋' };
+const SPECS = [
+  { id: 'fan', name: '扇形展開', en: 'Fan menu', ax: ['origin', 'path', 'rhythm', 'physics'],
+    desc: '按鈕從觸發點沿弧線依序彈出，收合時倒序縮回。弧度可以是 90°（角落）、180°（底部中央）或 360°（畫面中央）。',
+    use: '行動 App 的快速新增按鈕、編輯器的插入選單、地圖上的標記操作', keys: '<kbd>Enter</kbd> 展開，<kbd>←</kbd><kbd>→</kbd> 移動，<kbd>Esc</kbd> 收合' },
+  { id: 'wheel', name: '武器輪盤', en: 'Radial wheel', ax: ['input', 'origin', 'fb'],
+    desc: '按住出現輪盤，用游標方向選擇，放開就確定。中心是取消區。選擇只看角度、不看距離，可以閉著眼睛用肌肉記憶操作。',
+    use: '繪圖軟體的工具切換（Blender、Maya 的 pie menu）、表情回應、右鍵快捷選單', keys: '<kbd>Space</kbd> 開啟，<kbd>←</kbd><kbd>→</kbd> 轉動，<kbd>Enter</kbd> 確定，<kbd>Esc</kbd> 取消' },
+  { id: 'ring', name: '環形選單', en: 'Ring menu', ax: ['path', 'physics', 'input'],
+    desc: '選項排在一個有透視的橢圓環上，正前方就是目前的選擇。可以拖曳、滾輪或方向鍵轉動，放手後自動吸附到最近的一格。',
+    use: '相機模式轉盤、音樂 App 的播放清單切換、商品款式挑選', keys: '聚焦舞台後按 <kbd>←</kbd><kbd>→</kbd>' },
+  { id: 'hand', name: '手牌', en: 'Card hand', ax: ['path', 'rhythm', 'physics', 'cont'],
+    desc: '選項像手中的牌沿弧線展開。滑過時那張牌抬起、左右的牌讓出空間；出牌後它飛到中央，其餘的牌重新排好。',
+    use: '方案選擇、照片或附件挑選、測驗的選項', keys: '<kbd>Tab</kbd> 逐張檢視，<kbd>Enter</kbd> 出牌' },
+  { id: 'hold', name: '長按蓄力', en: 'Hold to confirm', ax: ['input', 'fb'],
+    desc: '危險操作要按住一段時間，外圈逐漸填滿，按得越久按鈕越緊繃。中途放開就彈回；按滿才觸發，並伴隨爆開的粒子。',
+    use: '刪除資料、部署到正式環境、確認付款，用來取代「你確定嗎？」對話框', keys: '按住 <kbd>Space</kbd> 或 <kbd>Enter</kbd>' },
+  { id: 'timing', name: '時機判定', en: 'Timing ring', ax: ['fb', 'rhythm'],
+    desc: '外圈縮到和內圈重疊的瞬間按下，依誤差分成 PERFECT、GOOD、MISS。命中時畫面停頓一拍並震動，這就是遊戲說的打擊感。',
+    use: '活動頁的小遊戲、互動教學；停頓加震動加浮字這三件事，也能用在任何成功回饋', keys: '<kbd>Space</kbd> 格擋' },
+  { id: 'mag', name: '磁吸按鈕', en: 'Magnetic', ax: ['input', 'physics'],
+    desc: '游標靠近時按鈕被吸過去，文字移動得比按鈕底更多，產生前後兩層的視差。離開後用彈簧回到原位。',
+    use: '首頁的主要行動按鈕、導覽列、社群連結', keys: '鍵盤聚焦時不吸附，維持原位' },
+  { id: 'morph', name: '形變按鈕', en: 'Morph', ax: ['cont', 'physics'],
+    desc: '「加入購物車」按鈕直接長大變成購物車面板，關閉時縮回同一顆按鈕。使用者不必猜新出現的東西是從哪裡來的。',
+    use: '加入購物車、搜尋框展開、聊天泡泡展開成視窗、浮動按鈕展開成表單', keys: '<kbd>Enter</kbd> 開啟，<kbd>Esc</kbd> 收回' },
+  { id: 'tabs', name: '伸縮頁籤', en: 'Stretchy tabs', ax: ['physics', 'cont'],
+    desc: '指示條的前緣先走、後緣後跟，移動途中被拉長，到點後再收回。列表內容也從移動的方向滑入。',
+    use: '分段控制、篩選器、設定頁的分類切換', keys: '<kbd>←</kbd><kbd>→</kbd> 切換頁籤' },
+  { id: 'dock', name: '拖曳停靠', en: 'Drag & dock', ax: ['input', 'physics'],
+    desc: '卡片跟著手走，移動得越快傾斜得越多。放手時依照甩出去的速度預測落點，再用彈簧吸到最近的欄位；拖出邊界會有橡皮筋阻力。',
+    use: '看板拖曳、檔案分類、排序清單、行事曆排程', keys: '聚焦卡片後按 <kbd>←</kbd><kbd>→</kbd> 換欄' },
+  { id: 'tilt', name: '傾斜卡片', en: 'Tilt card', ax: ['input'],
+    desc: '卡片朝游標傾斜，反光點跟著游標移動，彩虹光澤的強度隨傾斜角度變化，像拿在手上轉動一張實體卡。',
+    use: '會員卡、票券、商品卡、作品集封面', keys: '純裝飾，鍵盤與減少動態時保持平面' },
+  { id: 'zoom', name: '鏡頭推進', en: 'Zoom into', ax: ['cont', 'origin'],
+    desc: '點下的方塊直接長成整頁，其他方塊往反方向退開；返回時縮回原本的位置。空間關係被保留下來，使用者知道自己在哪一層。',
+    use: '作品集、儀表板下鑽、相簿、檔案總管', keys: '<kbd>Enter</kbd> 進入，<kbd>Esc</kbd> 返回' },
+  /* ── 第二批：系統型動態 ── */
+  { id: 'turn', b: 2, wide: 1, name: '回合順序條', en: 'Turn order', ax: ['cont', 'physics', 'input', 'rhythm'],
+    desc: '佇列像回合制遊戲的行動順序條：第一位「處理中」並放大。滑過或聚焦任何操作，下方的幽靈列會先排出「執行後」的順序；按下去，整排用 FLIP 加彈簧換位，離開的往左退場，新的從右邊進來。',
+    use: '客服佇列、部署排程、CI 工作佇列、會議發言順序、叫號系統', keys: '<kbd>←</kbd><kbd>→</kbd> 選擇項目，<kbd>Tab</kbd> 到操作按鈕即可預覽，<kbd>Enter</kbd> 執行' },
+  { id: 'combo', b: 2, name: '連擊與連鎖', en: 'Chain combo', ax: ['fb', 'rhythm', 'input'],
+    desc: '在時間窗內完成下一件，倍率就往上加，倍率數字每次都彈一下，倍率越高彈得越大。右側的條一直縮短，縮完就斷鏈；斷鏈有自己的失敗回饋，不是默默歸零。',
+    use: '收件匣清空、批次審核、連續打卡、學習 App 的連續答對、客服快速結案', keys: '<kbd>Tab</kbd> 到項目，<kbd>Enter</kbd> 完成，焦點會自動移到下一件' },
+  { id: 'tree', b: 2, wide: 1, name: '技能樹', en: 'Skill tree', ax: ['path', 'rhythm', 'origin', 'fb'],
+    desc: '完成一個節點，連線從它出發沿路徑描出來，線到了下一個節點才亮起。需要兩個前置的節點，要等兩條線都到齊。鎖住的節點也能聚焦，會直接說出還差哪些條件。',
+    use: 'Onboarding 清單、功能解鎖、學習路徑、認證進度、權限申請流程', keys: '方向鍵在節點之間移動，<kbd>Enter</kbd> 完成節點' },
+  { id: 'odo', b: 2, name: '數字滾輪與實體化進度', en: 'Odometer & vessel', ax: ['physics', 'rhythm', 'cont'],
+    desc: '金額用逐位數的滾輪：低位先轉、高位跟上，存入時一路往前滾，提領時往回滾。進度不是一條細線，而是裝進瓶子的水：水位用彈簧上升，漲得越快水面晃得越厲害。',
+    use: '存款目標、募資進度、配額用量、儲存空間、點數累積、捐款進度', keys: '<kbd>Tab</kbd> 到按鈕，<kbd>Enter</kbd> 存入或提領' },
+  { id: 'map', b: 2, wide: 1, name: '世界地圖式導覽', en: 'World map nav', ax: ['input', 'path', 'physics', 'cont'],
+    desc: '章節是地圖上的據點。切換章節時，標記沿著路線走過去，鏡頭跟著它移動，而不是直線跳過去。地圖可以拖曳或用方向鍵平移，放手後帶著慣性停下。窄螢幕預設改用清單，地圖變成選配。',
+    use: '產品路線圖、課程大綱、旅遊行程、專案里程碑、會員等級', keys: '聚焦地圖後方向鍵平移，<kbd>Tab</kbd> 到據點按 <kbd>Enter</kbd> 前往' },
+  { id: 'chat', b: 2, name: '對話式選項', en: 'Chat choices', ax: ['rhythm', 'origin', 'cont', 'path'],
+    desc: '選項像對話泡泡，從回覆的位置依序冒出來。選了之後，其他選項倒序收回，被選的那顆直接飛進對話串，變成你說的話；下一題接著打字、出現。',
+    use: '客服機器人、問卷、表單精靈、產品推薦問答、Onboarding 問答', keys: '<kbd>←</kbd><kbd>→</kbd> 在選項之間移動，<kbd>Enter</kbd> 選擇' }
+];
+
+const card = s => `
+  <article class="sp${s.wide ? ' wide' : ''}" id="sp-${s.id}" aria-labelledby="h-${s.id}">
+    <div class="stage ${s.id}-stage" data-id="${s.id}"></div>
+    <div class="meta">
+      <h3 id="h-${s.id}">${s.name}<small>${s.en}</small></h3>
+      <p>${s.desc}</p>
+      <ul class="chips" aria-label="用到的動態軸">${s.ax.map(a => `<li class="ax" data-ax="${a}">${AX[a]}</li>`).join('')}</ul>
+      <dl><dt>非遊戲用途</dt><dd>${s.use}</dd><dt>鍵盤</dt><dd>${s.keys}</dd></dl>
+    </div>
+  </article>`;
+$('#specimens').innerHTML = SPECS.filter(s => s.b !== 2).map(card).join('');
+$('#specimens2').innerHTML = SPECS.filter(s => s.b === 2).map(card).join('');
+const stage = id => $(`.stage[data-id=${id}]`);
+
+/* ═════════ 1 扇形展開 ═════════ */
+(() => {
+  const st = stage('fan');
+  const ITEMS = [['doc', '新增文件'], ['camera', '上傳照片'], ['mic', '錄一段語音'], ['check', '建立任務'], ['userplus', '邀請成員']];
+  st.dataset.arc = '180';
+  st.innerHTML = `<p class="stage-cap">QUICK ACTIONS</p>
+    <div class="fan-opts" role="group" aria-label="展開角度">${[90, 180, 360].map(a => `<button type="button" class="sbtn" data-arc="${a}" aria-pressed="${a === 180}">${a}°</button>`).join('')}</div>
+    <p class="fan-cap" aria-hidden="true"></p>
+    <div class="fan-wrap">
+      <ul class="fan-items" role="menu" id="fan-menu" aria-label="快速動作">${ITEMS.map((it, i) => `<li role="none"><button type="button" role="menuitem" class="fan-item" tabindex="-1" style="--i:${i}" data-label="${it[1]}" aria-label="${it[1]}">${ic(it[0])}</button></li>`).join('')}</ul>
+      <button type="button" class="fan-trigger" aria-expanded="false" aria-controls="fan-menu" aria-label="快速動作">${ic('plus')}</button>
+    </div>
+    <p class="stage-out"></p>`;
+  const trig = $('.fan-trigger', st), items = $$('.fan-item', st), cap = $('.fan-cap', st), out = $('.stage-out', st);
+  function place() {
+    const arc = +st.dataset.arc, n = items.length;
+    const R = arc === 360 ? Math.min(96, st.clientHeight * .3) : Math.min(116, st.clientHeight * .42);
+    items.forEach((b, i) => {
+      let a;
+      if (arc === 90) a = 90 - i * 90 / (n - 1);
+      else if (arc === 180) a = 180 - i * 180 / (n - 1);
+      else a = 90 - i * 360 / n;
+      const r = a * Math.PI / 180;
+      b.style.setProperty('--x', (Math.cos(r) * R).toFixed(1) + 'px');
+      b.style.setProperty('--y', (-Math.sin(r) * R).toFixed(1) + 'px');
+    });
+    cap.style.top = arc === 360 ? '12%' : '30%';
+  }
+  function open(focusFirst) { st.classList.add('open'); trig.setAttribute('aria-expanded', 'true'); items.forEach(b => b.tabIndex = 0); if (focusFirst) setTimeout(() => items[0].focus(), 30); }
+  function close(focusTrig) { st.classList.remove('open'); trig.setAttribute('aria-expanded', 'false'); items.forEach(b => b.tabIndex = -1); cap.textContent = ''; if (focusTrig) trig.focus(); }
+  trig.addEventListener('click', e => st.classList.contains('open') ? close() : open(e.detail === 0));
+  items.forEach((b, i) => {
+    const show = () => cap.textContent = b.dataset.label;
+    b.addEventListener('mouseenter', show); b.addEventListener('focus', show);
+    b.addEventListener('click', () => { out.innerHTML = `已選擇 <b>${b.dataset.label}</b>`; say('已選擇' + b.dataset.label); close(true); });
+    b.addEventListener('keydown', e => {
+      if (['ArrowRight', 'ArrowDown'].includes(e.key)) { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+      if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); items[(i + items.length - 1) % items.length].focus(); }
+    });
+  });
+  st.addEventListener('keydown', e => { if (e.key === 'Escape' && st.classList.contains('open')) close(true); });
+  st.addEventListener('focusout', e => { if (!st.contains(e.relatedTarget) && st.classList.contains('open')) close(); });
+  $('.fan-opts', st).addEventListener('click', e => { const b = e.target.closest('[data-arc]'); if (!b) return; st.dataset.arc = b.dataset.arc; $$('.fan-opts .sbtn', st).forEach(x => x.setAttribute('aria-pressed', x === b)); place(); });
+  new ResizeObserver(place).observe(st); place();
+})();
+
+/* ═════════ 2 武器輪盤 ═════════ */
+(() => {
+  const st = stage('wheel');
+  const TOOLS = [['move', '移動', 'V'], ['brush', '筆刷', 'B'], ['eraser', '橡皮擦', 'E'], ['dropper', '吸管', 'I'], ['zoom', '縮放', 'Z'], ['text', '文字', 'T'], ['shape', '形狀', 'U'], ['select', '選取', 'M']];
+  const n = TOOLS.length, r0 = 36, r1 = 104, gap = .05;
+  const arc = (a0, a1) => {
+    const p = (r, a) => `${(r * Math.cos(a)).toFixed(2)},${(r * Math.sin(a)).toFixed(2)}`;
+    return `M${p(r1, a0)} A${r1},${r1} 0 0 1 ${p(r1, a1)} L${p(r0, a1)} A${r0},${r0} 0 0 0 ${p(r0, a0)} Z`;
+  };
+  const slices = TOOLS.map((t, i) => {
+    const mid = i * 2 * Math.PI / n, h = Math.PI / n - gap, rr = (r0 + r1) / 2;
+    return `<g class="sg" data-i="${i}"><path class="sl" d="${arc(mid - h, mid + h)}"/><g class="si" transform="translate(${(rr * Math.cos(mid) - 11).toFixed(1)},${(rr * Math.sin(mid) - 11).toFixed(1)})"><svg width="22" height="22" viewBox="0 0 24 24" class="ico"><path d="${ICONS[t[0]]}"/></svg></g></g>`;
+  }).join('');
+  st.tabIndex = 0;
+  st.setAttribute('role', 'application');
+  st.setAttribute('aria-label', '工具輪盤。按住滑鼠或空白鍵開啟');
+  st.innerHTML = `<p class="stage-cap">TOOL WHEEL</p>
+    <button type="button" class="sbtn wheel-key">用鍵盤開啟</button>
+    <div class="wheel-hint"><div><b class="cur-tool">移動</b>在舞台上按住滑鼠，朝方向拖過去再放開</div></div>
+    <div class="wheel" hidden><svg viewBox="-120 -120 240 240" aria-hidden="true">${slices}<circle class="hub" r="${r0 - 4}"/></svg><div class="wheel-label"></div></div>
+    <p class="stage-out"></p>`;
+  const wheel = $('.wheel', st), label = $('.wheel-label', st), cur = $('.cur-tool', st), out = $('.stage-out', st), sgs = $$('.sg', st);
+  let sel = -1, active = false, cx = 0, cy = 0, kb = false;
+  function hi(i) {
+    sel = i;
+    sgs.forEach((g, k) => { $('.sl', g).classList.toggle('on', k === i); $('.si', g).classList.toggle('on', k === i); });
+    label.innerHTML = i < 0 ? '放開取消<small>CANCEL</small>' : `${TOOLS[i][1]}<small>${TOOLS[i][2]}</small>`;
+  }
+  function openAt(x, y) {
+    const W = st.clientWidth, H = st.clientHeight;
+    cx = clamp(x, 112, W - 112); cy = clamp(y, 112, H - 112);
+    wheel.style.left = cx + 'px'; wheel.style.top = cy + 'px';
+    wheel.hidden = false; active = true; st.classList.add('on'); hi(kb ? Math.max(0, sel) : -1);
+    wa(wheel, [{ transform: 'scale(.55) rotate(-25deg)', opacity: 0 }, { transform: 'scale(1) rotate(0)', opacity: 1 }]);
+    sgs.forEach((g, i) => wa(g, [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: 'linear', delay: i * (S.rm ? 0 : E().stagger * .5) }));
+  }
+  function commit() {
+    if (!active) return;
+    active = false; st.classList.remove('on');
+    const chosen = sel;
+    wa(wheel, [{ transform: 'scale(1)', opacity: 1 }, { transform: chosen < 0 ? 'scale(.7)' : 'scale(1.12)', opacity: 0 }], { duration: S.rm ? 1 : 180, easing: 'ease-in' }).then(() => { if (!active) wheel.hidden = true; });
+    if (chosen >= 0) {
+      cur.textContent = TOOLS[chosen][1];
+      out.innerHTML = `已切換到 <b>${TOOLS[chosen][1]}</b>（快捷鍵 ${TOOLS[chosen][2]}）`;
+      say('已切換到' + TOOLS[chosen][1]);
+      if (!S.rm) cur.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: S.dur, easing: S.easing });
+    } else out.textContent = '已取消';
+  }
+  st.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('.wheel-key')) return;
+    const b = st.getBoundingClientRect(); kb = false;
+    st.setPointerCapture(e.pointerId); openAt(e.clientX - b.left, e.clientY - b.top);
+  });
+  st.addEventListener('pointermove', e => {
+    if (!active || kb) return;
+    const b = st.getBoundingClientRect(), dx = e.clientX - b.left - cx, dy = e.clientY - b.top - cy;
+    if (Math.hypot(dx, dy) < r0 - 6) { if (sel !== -1) hi(-1); return; }
+    const a = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2), i = Math.round(a / (2 * Math.PI / n)) % n;
+    if (i !== sel) hi(i);
+  });
+  st.addEventListener('pointerup', () => { if (!kb) commit(); });
+  const kbOpen = () => { kb = true; sel = Math.max(0, sel); openAt(st.clientWidth / 2, st.clientHeight / 2); say('工具輪盤已開啟，目前是' + TOOLS[sel][1]); };
+  $('.wheel-key', st).addEventListener('click', () => { kbOpen(); st.focus(); });
+  st.addEventListener('keydown', e => {
+    if (e.target.closest('.wheel-key') && e.key !== 'Escape') return;
+    if (e.key === ' ' && !active) { e.preventDefault(); kbOpen(); return; }
+    if (!active) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); hi((sel + 1) % n); say(TOOLS[sel][1]); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); hi((sel + n - 1) % n); say(TOOLS[sel][1]); }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); sel = -1; commit(); }
+  });
+})();
+
+/* ═════════ 3 環形選單 ═════════ */
+(() => {
+  const st = stage('ring');
+  const MODES = [['clock', '縮時', '每 0.5 秒拍一張，自動合成影片'], ['slow', '慢動作', '240 fps，播放時放慢 8 倍'], ['rec', '錄影', '4K 30 fps'], ['camera', '照片', '4800 萬像素，自動 HDR'], ['person', '人像', '背景虛化，可事後調整焦點'], ['moon', '夜景', '最長 3 秒曝光，需穩定手持'], ['pano', '全景', '水平轉動拍出 180° 畫面']];
+  const n = MODES.length;
+  st.tabIndex = 0; st.setAttribute('role', 'listbox'); st.setAttribute('aria-label', '相機模式'); st.setAttribute('aria-roledescription', '轉盤');
+  st.innerHTML = `<p class="stage-cap">CAMERA MODE</p>
+    ${MODES.map((m, i) => `<div class="ring-item" role="option" id="ring-${i}" aria-label="${m[1]}">${ic(m[0])}</div>`).join('')}
+    <button type="button" class="sbtn ring-nav l" aria-label="上一個模式" tabindex="-1">${ic('left')}</button>
+    <button type="button" class="sbtn ring-nav r" aria-label="下一個模式" tabindex="-1">${ic('right')}</button>
+    <p class="ring-label"><b></b><span></span></p>`;
+  const els = $$('.ring-item', st), lb = $('.ring-label b', st), ld = $('.ring-label span', st);
+  const th = new Spring(3, .002);
+  let front = -1;
+  function render() {
+    const W = st.clientWidth, H = st.clientHeight, cx = W / 2, cy = H * .4, Rx = Math.min(W * .36, 150), Ry = H * .13;
+    els.forEach((el, i) => {
+      let d = ((i - th.x) % n + n) % n; if (d > n / 2) d -= n;
+      const phi = d * 2 * Math.PI / n, depth = (Math.cos(phi) + 1) / 2;
+      const x = cx + Rx * Math.sin(phi), y = cy + Ry * Math.cos(phi), s = .52 + .58 * depth;
+      el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${s.toFixed(3)})`;
+      el.style.opacity = (.25 + .75 * depth).toFixed(2);
+      el.style.zIndex = Math.round(depth * 100);
+    });
+    const f = ((Math.round(th.t) % n) + n) % n;
+    if (f !== front) {
+      front = f;
+      els.forEach((el, i) => { el.classList.toggle('front', i === f); el.setAttribute('aria-selected', i === f); });
+      st.setAttribute('aria-activedescendant', 'ring-' + f);
+      lb.textContent = MODES[f][1]; ld.textContent = MODES[f][2];
+    }
+  }
+  const kick = loop(dt => { const more = th.step(dt, .9, 1); render(); return more || dragging; });
+  const go = d => { th.t = Math.round(th.t) + d; kick(); };
+  let dragging = false, sx = 0, st0 = 0;
+  st.addEventListener('pointerdown', e => { if (e.target.closest('.ring-nav')) return; dragging = true; sx = e.clientX; st0 = th.t; st.setPointerCapture(e.pointerId); st.style.cursor = 'grabbing'; kick(); });
+  st.addEventListener('pointermove', e => { if (!dragging) return; th.t = st0 - (e.clientX - sx) / 70; });
+  const end = () => { if (!dragging) return; dragging = false; st.style.cursor = ''; th.t = Math.round(th.t + th.v * .12); kick(); say(MODES[((Math.round(th.t) % n) + n) % n][1]); };
+  st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+  st.addEventListener('wheel', e => { e.preventDefault(); go(e.deltaY > 0 || e.deltaX > 0 ? 1 : -1); }, { passive: false });
+  st.addEventListener('keydown', e => { if (e.key === 'ArrowRight') { e.preventDefault(); go(1); } if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } });
+  $('.ring-nav.l', st).addEventListener('click', () => go(-1));
+  $('.ring-nav.r', st).addEventListener('click', () => go(1));
+  new ResizeObserver(render).observe(st); render();
+})();
+
+/* ═════════ 4 手牌 ═════════ */
+(() => {
+  const st = stage('hand');
+  const PLANS = [['免費', 'NT$0', '1 個專案、社群支援'], ['入門', 'NT$190 / 月', '5 個專案、Email 支援'], ['專業', 'NT$490 / 月', '無限專案、自訂網域', 1], ['團隊', 'NT$1,200 / 月', '10 人、權限管理'], ['企業', '洽詢報價', 'SSO、專屬客服']];
+  st.innerHTML = `<p class="stage-cap">CHOOSE A PLAN</p>
+    <button type="button" class="sbtn hand-reset">收回</button>
+    <div class="hand-zone" aria-hidden="true">放在這裡<br>就是選定</div>
+    ${PLANS.map((p, i) => `<button type="button" class="card${p[3] ? ' rec' : ''}" data-i="${i}" aria-label="${p[0]}方案，${p[1]}，${p[2]}">${p[3] ? '<span class="tag">推薦</span>' : ''}<span class="cn">${p[0]}</span><span class="cp">${p[1]}</span><span class="cd">${p[2]}</span></button>`).join('')}
+    <p class="stage-out"></p>`;
+  const cards = $$('.card', st), zone = $('.hand-zone', st), out = $('.stage-out', st);
+  let hover = -1, played = -1;
+  function layout() {
+    const live = cards.filter((_, i) => i !== played), n = live.length, mid = (n - 1) / 2;
+    const spread = Math.min(60, st.clientWidth / (n + 2.4));
+    const hl = live.findIndex(c => +c.dataset.i === hover);
+    live.forEach((c, j) => {
+      const d = j - mid;
+      let x = d * spread, y = -40 + d * d * 7, r = d * 7, s = 1, z = j + 1;
+      if (j === hl) { y -= 46; r = 0; s = 1.14; z = 50; }
+      else if (hl >= 0) x += j < hl ? -22 : 22;
+      c.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${r.toFixed(1)}deg) scale(${s})`;
+      c.style.zIndex = z;
+    });
+    if (played >= 0) {
+      const c = cards[played], zr = zone.getBoundingClientRect(), sr = st.getBoundingClientRect();
+      const ty = zr.top - sr.top + zr.height / 2 - (st.clientHeight + 14 - 67);
+      c.style.transform = `translate(0px,${ty.toFixed(1)}px) rotate(0deg) scale(1.08)`;
+      c.style.zIndex = 60;
+    }
+    zone.classList.toggle('got', played >= 0);
+  }
+  cards.forEach(c => {
+    const i = +c.dataset.i;
+    const on = () => { if (played === i) return; hover = i; layout(); };
+    const offf = () => { if (hover === i) { hover = -1; layout(); } };
+    c.addEventListener('pointerenter', on); c.addEventListener('focus', on);
+    c.addEventListener('pointerleave', offf); c.addEventListener('blur', offf);
+    c.addEventListener('click', () => {
+      if (played === i) { played = -1; out.textContent = ''; layout(); return; }
+      played = i; hover = -1; layout();
+      out.innerHTML = `已選定 <b>${PLANS[i][0]}方案</b> · ${PLANS[i][1]}`; say(`已選定${PLANS[i][0]}方案`);
+    });
+  });
+  $('.hand-reset', st).addEventListener('click', () => { played = -1; hover = -1; out.textContent = ''; layout(); });
+  new ResizeObserver(layout).observe(st); layout();
+})();
+
+/* ═════════ 5 長按蓄力 ═════════ */
+(() => {
+  const st = stage('hold');
+  const HOLD = 1200;
+  st.innerHTML = `<p class="stage-cap">DANGER ZONE</p>
+    <div class="hold-wrap"><button type="button" class="hold" aria-describedby="hold-d">${ic('trash')}<span class="ht">按住刪除<br>「夜航 v2」</span></button></div>
+    <p class="stage-out" id="hold-d">按住 1.2 秒才會刪除，中途放開就取消</p>`;
+  const btn = $('.hold', st), txt = $('.ht', st), out = $('.stage-out', st);
+  let anim = null, down = false, done = false, jit = null;
+  const cur = () => parseFloat(getComputedStyle(btn).getPropertyValue('--p')) || 0;
+  function press() {
+    if (down || done) return; down = true;
+    const p0 = cur(); anim && anim.cancel();
+    anim = btn.animate([{ '--p': p0 }, { '--p': 1 }], { duration: (1 - p0) * HOLD, easing: 'linear', fill: 'forwards' });
+    anim.onfinish = finish;
+    out.textContent = '放開可以取消';
+    if (!S.rm && E().shake > 2) {
+      const t0 = performance.now();
+      const j = () => { if (!down) { btn.style.translate = ''; return; } const p = cur(), a = p * p * E().shake * .35; btn.style.translate = `${((Math.random() - .5) * a).toFixed(2)}px ${((Math.random() - .5) * a).toFixed(2)}px`; jit = requestAnimationFrame(j); };
+      jit = requestAnimationFrame(j);
+    }
+    if (!S.rm) btn.animate([{ scale: 1 }, { scale: E().press }], { duration: 120, fill: 'forwards' });
+  }
+  function release() {
+    if (!down) return; down = false; cancelAnimationFrame(jit); btn.style.translate = '';
+    if (done) return;
+    const p0 = cur(); anim && anim.cancel();
+    anim = btn.animate([{ '--p': p0 }, { '--p': 0 }], { duration: S.rm ? 1 : S.dur, easing: S.easing, fill: 'forwards' });
+    btn.animate([{ scale: E().press }, { scale: 1 }], { duration: S.rm ? 1 : S.dur, easing: S.easing, fill: 'forwards' });
+    out.textContent = p0 > .05 ? `已取消（進度 ${Math.round(p0 * 100)}%）` : '按住 1.2 秒才會刪除，中途放開就取消';
+  }
+  function finish() {
+    done = true; down = false; cancelAnimationFrame(jit); btn.style.translate = '';
+    btn.classList.add('done'); txt.innerHTML = '已刪除<br>（示範）'; out.textContent = '專案已刪除（這是示範，什麼都沒有被刪掉）'; say('已刪除，這是示範');
+    btn.animate([{ scale: .86 }, { scale: 1 }], { duration: S.rm ? 1 : S.dur, easing: S.easing, fill: 'forwards' });
+    if (!S.rm) {
+      const n = E().sparks, wrap = $('.hold-wrap', st);
+      for (let i = 0; i < n; i++) {
+        const s = document.createElement('i'); s.className = 'spark'; wrap.appendChild(s);
+        const a = i / n * Math.PI * 2, d = 80 + rnd(i, 4) * 50;
+        s.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d}px) scale(.2)`, opacity: 0 }], { duration: 520 + rnd(i, 5) * 300, easing: 'cubic-bezier(.1,.7,.3,1)' }).onfinish = () => s.remove();
+      }
+      shake(st, .6);
+    }
+    setTimeout(() => { done = false; btn.classList.remove('done'); txt.innerHTML = '按住刪除<br>「夜航 v2」'; anim && anim.cancel(); btn.style.removeProperty('--p'); out.textContent = '按住 1.2 秒才會刪除，中途放開就取消'; }, 2400);
+  }
+  btn.addEventListener('pointerdown', e => { btn.setPointerCapture(e.pointerId); press(); });
+  btn.addEventListener('pointerup', release); btn.addEventListener('pointercancel', release); btn.addEventListener('lostpointercapture', release);
+  btn.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); press(); } else if (e.key === ' ' || e.key === 'Enter') e.preventDefault(); });
+  btn.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); release(); } });
+  btn.addEventListener('click', e => e.preventDefault());
+  btn.addEventListener('blur', release);
+})();
+
+/* ═════════ 6 時機判定 ═════════ */
+(() => {
+  const st = stage('timing');
+  st.innerHTML = `<div class="tm-wrap"><p class="stage-cap">PARRY · 8 ROUNDS</p>
+    <div class="tm-target"></div><div class="tm-ring"></div>
+    <div class="tm-combo" aria-hidden="true"><b>0</b><span>COMBO</span></div>
+    <div class="tm-ctl"><button type="button" class="sbtn tm-start">開始練習</button><button type="button" class="sbtn tm-hit" disabled>格擋 <kbd>Space</kbd></button></div>
+    <p class="stage-out" aria-live="polite">外圈和內圈重疊的瞬間按下格擋</p></div>`;
+  const wrap = $('.tm-wrap', st), ring = $('.tm-ring', st), tgt = $('.tm-target', st), cb = $('.tm-combo b', st), out = $('.stage-out', st);
+  const bStart = $('.tm-start', st), bHit = $('.tm-hit', st);
+  const T = 900, END = 1150;
+  let anim = null, judged = true, round = 0, combo = 0, stats = { P: 0, G: 0, M: 0 }, running = false, timer = null;
+  function float(text, color) {
+    const f = document.createElement('div'); f.className = 'tm-float'; f.textContent = text; f.style.color = color; wrap.appendChild(f);
+    if (S.rm) { setTimeout(() => f.remove(), 600); return; }
+    f.animate([{ transform: 'translate(0,0) scale(.6)', opacity: 0 }, { transform: 'translate(0,-46px) scale(1.15)', opacity: 1, offset: .35 }, { transform: 'translate(0,-70px) scale(1)', opacity: 0 }], { duration: 760, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => f.remove();
+  }
+  function judge(d) {
+    if (judged) return; judged = true;
+    const ad = Math.abs(d);
+    let k = ad <= 70 ? 'P' : ad <= 150 ? 'G' : 'M';
+    stats[k]++;
+    if (k === 'M') { combo = 0; float('MISS', 'var(--st-bad)'); shake(tgt, .5); }
+    else {
+      combo++;
+      float(k === 'P' ? 'PERFECT' : 'GOOD', k === 'P' ? 'var(--st-acc)' : 'var(--st-good)');
+      tgt.classList.add('flash'); setTimeout(() => tgt.classList.remove('flash'), 220);
+      if (k === 'P' && !S.rm) { anim.pause(); setTimeout(() => anim && anim.play(), 90); shake(wrap); }
+      if (!S.rm) cb.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: S.dur, easing: S.easing });
+    }
+    cb.textContent = combo;
+    out.textContent = `第 ${round} 回 · ${k === 'P' ? 'PERFECT' : k === 'G' ? 'GOOD' : 'MISS'}${isFinite(d) ? `（${d > 0 ? '晚' : '早'} ${Math.round(ad)} ms）` : ''}`;
+  }
+  function next() {
+    if (!running) return;
+    if (round >= 8) { running = false; bHit.disabled = true; bStart.disabled = false; bStart.textContent = '再練一次'; out.textContent = `結果：PERFECT ${stats.P} · GOOD ${stats.G} · MISS ${stats.M}`; say(out.textContent); return; }
+    round++; judged = false;
+    anim = ring.animate([{ transform: 'translate(-50%,-50%) scale(3)', opacity: .15 }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: T / END }, { transform: 'translate(-50%,-50%) scale(.6)', opacity: 0 }], { duration: END, easing: 'linear', fill: 'both' });
+    anim.onfinish = () => { if (!judged) judge(Infinity); timer = setTimeout(next, 450 + Math.random() * 450); };
+  }
+  function hit() { if (!running || !anim || judged) return; judge(anim.currentTime - T); }
+  bStart.addEventListener('click', () => { running = true; round = 0; combo = 0; stats = { P: 0, G: 0, M: 0 }; cb.textContent = 0; bStart.disabled = true; bHit.disabled = false; bHit.focus(); out.textContent = '準備…'; timer = setTimeout(next, 600); });
+  bHit.addEventListener('click', hit);
+  st.addEventListener('keydown', e => { if (e.key === ' ' && running) { e.preventDefault(); if (!e.repeat) hit(); } });
+  bHit.addEventListener('keyup', e => { if (e.key === ' ') e.preventDefault(); });
+  new IntersectionObserver(es => es.forEach(en => { if (!en.isIntersecting && running) { running = false; clearTimeout(timer); anim && anim.cancel(); bHit.disabled = true; bStart.disabled = false; bStart.textContent = '繼續練習'; } })).observe(st);
+})();
+
+/* ═════════ 7 磁吸按鈕 ═════════ */
+(() => {
+  const st = stage('mag');
+  st.innerHTML = `<p class="stage-cap">MAGNETIC CTA</p>
+    <button type="button" class="sbtn mag-key" aria-pressed="false">顯示磁場</button>
+    <div class="mag-row">
+      <button type="button" class="mag pri"><i class="field"></i><span class="lbl">免費開始 ${ic('arrow')}</span></button>
+      <button type="button" class="mag"><i class="field"></i><span class="lbl">${ic('play')} 看 2 分鐘示範</span></button>
+      <button type="button" class="mag ic" aria-label="收藏"><i class="field"></i><span class="lbl">${ic('heart')}</span></button>
+    </div><p class="stage-out"></p>`;
+  const btns = $$('.mag', st).map(el => ({ el, lbl: $('.lbl', el), x: new Spring(0, .05), y: new Spring(0, .05), lx: new Spring(0, .05), ly: new Spring(0, .05) }));
+  const R = 110;
+  const kick = loop(dt => {
+    let more = false;
+    btns.forEach(b => {
+      more = b.x.step(dt, .7, 1.1) | b.y.step(dt, .7, 1.1) | b.lx.step(dt, .9, 1) | b.ly.step(dt, .9, 1) || more;
+      b.el.style.transform = `translate(${b.x.x.toFixed(2)}px,${b.y.x.toFixed(2)}px)`;
+      b.lbl.style.transform = `translate(${b.lx.x.toFixed(2)}px,${b.ly.x.toFixed(2)}px)`;
+    });
+    return more;
+  });
+  st.addEventListener('pointermove', e => {
+    if (S.rm) return;
+    btns.forEach(b => {
+      const r = b.el.getBoundingClientRect(), cx = r.left + r.width / 2 - b.x.x, cy = r.top + r.height / 2 - b.y.x;
+      const dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy);
+      const f = d < R ? (1 - d / R) * .6 + .4 : 0, p = E().pull;
+      b.x.t = d < R ? dx * p * f : 0; b.y.t = d < R ? dy * p * f : 0;
+      b.lx.t = b.x.t * .55; b.ly.t = b.y.t * .55;
+    });
+    kick();
+  });
+  st.addEventListener('pointerleave', () => { btns.forEach(b => { b.x.t = b.y.t = b.lx.t = b.ly.t = 0; }); kick(); });
+  btns.forEach(b => b.el.addEventListener('click', () => { $('.stage-out', st).innerHTML = `按下了 <b>${b.el.getAttribute('aria-label') || b.lbl.textContent.trim()}</b>`; if (!S.rm) b.el.animate([{ scale: E().press }, { scale: 1 }], { duration: S.dur, easing: S.easing }); }));
+  $('.mag-key', st).addEventListener('click', e => { const on = st.classList.toggle('show-field'); e.currentTarget.setAttribute('aria-pressed', on); });
+})();
+
+/* ═════════ 8 形變按鈕 ═════════ */
+(() => {
+  const st = stage('morph');
+  st.innerHTML = `<p class="stage-cap">ADD TO CART</p>
+    <div class="mo-card"><div class="mo-img" aria-hidden="true"></div><p class="mo-name">夜航帆布托特包</p><p class="mo-price">NT$890</p><div class="mo-anchor"></div></div>
+    <div class="morph">
+      <div class="mo-face mo-btnface"><button type="button" class="mo-btn" aria-expanded="false">${ic('bag')}加入購物車</button></div>
+      <div class="mo-face mo-panel" role="dialog" aria-label="購物車">
+        <div class="mo-ph">${ic('check')}已加入購物車<button type="button" class="mo-x" aria-label="關閉購物車">${ic('x')}</button></div>
+        <div class="mo-row"><i class="mo-th" aria-hidden="true"></i><span>夜航帆布托特包</span><div class="mo-qty"><button type="button" data-q="-1" aria-label="減少數量">−</button><output>1</output><button type="button" data-q="1" aria-label="增加數量">+</button></div></div>
+        <div class="mo-act"><button type="button" class="keep">繼續逛</button><button type="button" class="go">結帳 · <span class="sum">NT$890</span></button></div>
+      </div>
+    </div><p class="stage-out"></p>`;
+  const mo = $('.morph', st), anchor = $('.mo-anchor', st), btn = $('.mo-btn', st), out = $('.stage-out', st);
+  let open = false, q = 1;
+  function place() {
+    const sr = st.getBoundingClientRect();
+    if (!open) {
+      const a = anchor.getBoundingClientRect();
+      Object.assign(mo.style, { left: a.left - sr.left + 'px', top: a.top - sr.top + 'px', width: a.width + 'px', height: a.height + 'px' });
+    } else {
+      const w = Math.min(268, st.clientWidth - 28), h = 176;
+      Object.assign(mo.style, { left: st.clientWidth - w - 14 + 'px', top: st.clientHeight - h - 34 + 'px', width: w + 'px', height: h + 'px' });
+    }
+  }
+  function setOpen(v) {
+    open = v; mo.classList.toggle('open', v); btn.setAttribute('aria-expanded', v); place();
+    if (v) { setTimeout(() => $('.keep', st).focus(), S.rm ? 0 : 160); say('已加入購物車'); }
+    else btn.focus();
+  }
+  btn.addEventListener('click', () => setOpen(true));
+  $('.mo-x', st).addEventListener('click', () => setOpen(false));
+  $('.keep', st).addEventListener('click', () => setOpen(false));
+  $('.go', st).addEventListener('click', () => { out.innerHTML = `前往結帳：<b>${q} 件</b>（示範）`; });
+  $$('.mo-qty button', st).forEach(b => b.addEventListener('click', () => { q = clamp(q + +b.dataset.q, 1, 9); $('.mo-qty output', st).textContent = q; $('.sum', st).textContent = 'NT$' + (890 * q).toLocaleString(); }));
+  st.addEventListener('keydown', e => { if (e.key === 'Escape' && open) setOpen(false); });
+  new ResizeObserver(place).observe(st); requestAnimationFrame(place);
+  document.fonts && document.fonts.ready.then(place);
+})();
+
+/* ═════════ 9 伸縮頁籤 ═════════ */
+(() => {
+  const st = stage('tabs');
+  const TABS = [['全部', 12, ['改版首頁 Hero', '結帳流程 A/B 測試', '推播憑證更新', '隱私權政策改版']], ['進行中', 4, ['結帳流程 A/B 測試', '推播憑證更新']], ['已完成', 7, ['匯率四捨五入修正', '登入頁改版', '客服信箱更新']], ['封存', 1, ['舊版會員中心']]];
+  const COL = ['var(--st-acc2)', 'var(--st-acc)', 'var(--st-good)', 'var(--st-dim)'];
+  st.innerHTML = `<p class="stage-cap">FILTER</p>
+    <div class="tabs" role="tablist" aria-label="任務篩選"><i class="tab-ind" aria-hidden="true"></i>${TABS.map((t, i) => `<button type="button" role="tab" class="tab" id="tab-${i}" aria-selected="${i === 0}" aria-controls="tabp" tabindex="${i === 0 ? 0 : -1}">${t[0]}<small>${t[1]}</small></button>`).join('')}</div>
+    <ul class="tab-panel" id="tabp" role="tabpanel" aria-labelledby="tab-0"></ul>`;
+  const tabs = $$('.tab', st), ind = $('.tab-ind', st), panel = $('.tab-panel', st);
+  const L = new Spring(0, .2), Rr = new Spring(0, .2);
+  let cur = 0;
+  const kick = loop(dt => {
+    const goingRight = Rr.t >= Rr.x;
+    const a = L.step(dt, goingRight ? .55 : 1.5, goingRight ? .8 : 1.1), b = Rr.step(dt, goingRight ? 1.5 : .55, goingRight ? 1.1 : .8);
+    ind.style.left = L.x.toFixed(1) + 'px'; ind.style.width = Math.max(10, Rr.x - L.x).toFixed(1) + 'px';
+    return a || b;
+  });
+  function target(first) {
+    const t = tabs[cur]; L.t = t.offsetLeft; Rr.t = t.offsetLeft + t.offsetWidth;
+    if (first) { L.x = L.t; Rr.x = Rr.t; }
+    kick();
+  }
+  function fill(dir) {
+    const [, , items] = TABS[cur];
+    panel.innerHTML = items.map(x => `<li style="--c:${COL[cur]}"><i></i>${x}</li>`).join('');
+    panel.setAttribute('aria-labelledby', 'tab-' + cur);
+    if (dir) $$('li', panel).forEach((li, i) => wa(li, [{ opacity: 0, transform: `translateX(${dir * 26}px)` }, { opacity: 1, transform: 'none' }], { delay: i * (S.rm ? 0 : E().stagger) }));
+  }
+  function sel(i, focus) {
+    if (i === cur) return;
+    const dir = i > cur ? 1 : -1; cur = i;
+    tabs.forEach((t, k) => { t.setAttribute('aria-selected', k === i); t.tabIndex = k === i ? 0 : -1; });
+    if (focus) tabs[i].focus();
+    target(); fill(dir);
+  }
+  tabs.forEach((t, i) => t.addEventListener('click', () => sel(i)));
+  st.addEventListener('keydown', e => { if (e.key === 'ArrowRight') { e.preventDefault(); sel((cur + 1) % tabs.length, true); } if (e.key === 'ArrowLeft') { e.preventDefault(); sel((cur + tabs.length - 1) % tabs.length, true); } });
+  fill(0); requestAnimationFrame(() => target(true));
+  new ResizeObserver(() => target(true)).observe(st);
+  document.fonts && document.fonts.ready.then(() => target(true));
+})();
+
+/* ═════════ 10 拖曳停靠 ═════════ */
+(() => {
+  const st = stage('dock');
+  const COLS = ['待辦', '進行中', '完成'];
+  st.innerHTML = `<p class="stage-cap">KANBAN</p>
+    <div class="cols">${COLS.map((c, i) => `<div class="col" data-c="${i}"><h4>${c}</h4><div class="ghost" aria-hidden="true"></div></div>`).join('')}</div>
+    <div class="chip" tabindex="0" role="button" aria-roledescription="可拖曳的卡片" aria-describedby="dock-h"><b>改版首頁 Hero</b><span>DSN-31 · 3 點</span></div>
+    <p class="stage-out" id="dock-h">拖曳卡片，或聚焦後用方向鍵換欄</p>`;
+  const chip = $('.chip', st), cols = $$('.col', st), out = $('.stage-out', st);
+  const X = new Spring(0, .3), Y = new Spring(0, .3), Rt = new Spring(0, .05);
+  let col = 0, drag = false, ox = 0, oy = 0, lastX = 0, lastT = 0, vx = 0;
+  const slot = i => { const g = $('.ghost', cols[i]), sr = st.getBoundingClientRect(), r = g.getBoundingClientRect(); return { x: r.left - sr.left, y: r.top - sr.top, w: r.width }; };
+  const render = () => { chip.style.transform = `translate(${X.x.toFixed(1)}px,${Y.x.toFixed(1)}px) rotate(${Rt.x.toFixed(2)}deg)${drag ? ' scale(1.05)' : ''}`; };
+  const kick = loop(dt => { const a = drag ? false : X.step(dt, .8, 1), b = drag ? false : Y.step(dt, .8, 1), c = Rt.step(dt, 1.2, 1.2); render(); return drag || a || b || c; });
+  function settle(i, announce) {
+    col = i; const s = slot(i); chip.style.setProperty('--w', s.w + 'px'); X.t = s.x; Y.t = s.y; Rt.t = 0; kick();
+    cols.forEach((c, k) => c.classList.toggle('hot', false));
+    if (announce) { out.innerHTML = `已移到 <b>${COLS[i]}</b>`; say('已移到' + COLS[i]); }
+  }
+  chip.addEventListener('pointerdown', e => {
+    drag = true; chip.classList.add('drag'); chip.setPointerCapture(e.pointerId);
+    const sr = st.getBoundingClientRect(); ox = e.clientX - sr.left - X.x; oy = e.clientY - sr.top - Y.x; lastX = e.clientX; lastT = performance.now(); vx = 0; kick();
+  });
+  chip.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const sr = st.getBoundingClientRect(), now = performance.now();
+    let x = e.clientX - sr.left - ox, y = e.clientY - sr.top - oy;
+    const W = st.clientWidth - chip.offsetWidth, H = st.clientHeight - chip.offsetHeight;
+    const band = (v, max) => v < 0 ? v * .35 : v > max ? max + (v - max) * .35 : v;
+    X.x = X.t = band(x, W); Y.x = Y.t = band(y, H);
+    const dtm = Math.max(1, now - lastT); vx = vx * .7 + ((e.clientX - lastX) / dtm * 1000) * .3; lastX = e.clientX; lastT = now;
+    Rt.t = S.rm ? 0 : clamp(vx * .012 * (E().tilt / 11), -E().tilt, E().tilt);
+    const proj = X.x + chip.offsetWidth / 2;
+    cols.forEach((c, k) => { const s = slot(k); c.classList.toggle('hot', proj > s.x - 4 && proj < s.x + s.w + 4); });
+  });
+  const up = () => {
+    if (!drag) return; drag = false; chip.classList.remove('drag');
+    const proj = X.x + chip.offsetWidth / 2 + vx * .16;
+    let best = 0, bd = Infinity; cols.forEach((c, k) => { const s = slot(k), d = Math.abs(s.x + s.w / 2 - proj); if (d < bd) { bd = d; best = k; } });
+    X.v = vx * .4; settle(best, true);
+  };
+  chip.addEventListener('pointerup', up); chip.addEventListener('pointercancel', up);
+  chip.addEventListener('keydown', e => { if (e.key === 'ArrowRight' && col < 2) { e.preventDefault(); settle(col + 1, true); } if (e.key === 'ArrowLeft' && col > 0) { e.preventDefault(); settle(col - 1, true); } });
+  const init = () => { const s = slot(col); chip.style.setProperty('--w', s.w + 'px'); X.x = X.t = s.x; Y.x = Y.t = s.y; render(); };
+  new ResizeObserver(init).observe(st); requestAnimationFrame(init);
+})();
+
+/* ═════════ 11 傾斜卡片 ═════════ */
+(() => {
+  const st = stage('tilt');
+  st.innerHTML = `<p class="stage-cap">MEMBER CARD</p>
+    <div class="tcard" aria-label="夜航會員卡，金卡，編號 0042"><div><div class="t1">NIGHT VOYAGE</div></div><i class="chipi" aria-hidden="true"></i><div><div class="t2">金卡會員</div><div class="t3"><span>No. 0042</span><span>有效至 2027/10</span></div></div><i class="holo" aria-hidden="true"></i><i class="glare" aria-hidden="true"></i></div>`;
+  const card = $('.tcard', st);
+  const rx = new Spring(0, .02), ry = new Spring(0, .02), gx = new Spring(50, .2), gy = new Spring(50, .2);
+  const kick = loop(dt => {
+    const m = rx.step(dt, .5, .9) | ry.step(dt, .5, .9) | gx.step(dt, .6, 1) | gy.step(dt, .6, 1);
+    card.style.transform = `rotateX(${rx.x.toFixed(2)}deg) rotateY(${ry.x.toFixed(2)}deg)`;
+    card.style.setProperty('--gx', gx.x.toFixed(1) + '%'); card.style.setProperty('--gy', gy.x.toFixed(1) + '%');
+    card.style.setProperty('--hx', (100 - gx.x).toFixed(1) + '%'); card.style.setProperty('--hy', (100 - gy.x).toFixed(1) + '%');
+    card.style.setProperty('--ho', (.15 + Math.min(.6, (Math.abs(rx.x) + Math.abs(ry.x)) / 30)).toFixed(2));
+    return !!m;
+  });
+  st.addEventListener('pointermove', e => {
+    if (S.rm) return;
+    const r = card.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height, T = E().tilt * 1.1;
+    ry.t = clamp((px - .5) * 2, -1.3, 1.3) * T; rx.t = clamp((.5 - py) * 2, -1.3, 1.3) * T;
+    gx.t = clamp(px * 100, -10, 110); gy.t = clamp(py * 100, -10, 110); kick();
+  });
+  st.addEventListener('pointerleave', () => { rx.t = ry.t = 0; gx.t = gy.t = 50; kick(); });
+})();
+
+/* ═════════ 12 鏡頭推進 ═════════ */
+(() => {
+  const st = stage('zoom');
+  const P = [['潮汐表', '#2F6F8F', 'TIDE', '基隆港未來 7 天的潮位，每 10 分鐘更新一次。', [['2.1 m', '最高潮位'], ['06:42', '下次滿潮'], ['7 天', '預報範圍']]],
+    ['港口地圖', '#7A5A2E', 'PORT', '北台灣 14 個港口的泊位、水深與聯絡電話。', [['14', '港口'], ['126', '泊位'], ['9.5 m', '最深泊位']]],
+    ['航海日誌', '#5B3F7A', 'LOG', '每趟航程自動記錄航跡、風速與油耗。', [['312', '航程'], ['4,820 nm', '累計里程'], ['18%', '油耗下降']]],
+    ['燈塔維護', '#8A3B32', 'LIGHT', '12 座燈塔的巡檢排程與燈器故障通報。', [['12', '燈塔'], ['3', '待巡檢'], ['0', '故障中']]],
+    ['船員排班', '#2F7A5C', 'CREW', '依證照與工時上限自動排出下個月的班表。', [['46', '船員'], ['98%', '排班覆蓋'], ['0', '超時']]],
+    ['氣象警報', '#3A4A7A', 'WX', '整合中央氣象署的海上警報，推播到船上平板。', [['5', '本月警報'], ['< 1 分', '推播延遲'], ['24 h', '監看']]]];
+  st.innerHTML = `<p class="stage-cap">PROJECTS</p>
+    <div class="zm-grid">${P.map((p, i) => `<button type="button" class="zm-tile" data-i="${i}" style="--bgc:${p[1]}"><span>${p[2]}</span><b>${p[0]}</b></button>`).join('')}</div>
+    <div class="zm-panel" hidden role="dialog" aria-labelledby="zm-t"><div class="zc"><button type="button" class="zm-back">${ic('left')}返回</button><h4 id="zm-t"></h4><p class="zm-d"></p><div class="zm-stats"></div></div></div>`;
+  const tiles = $$('.zm-tile', st), panel = $('.zm-panel', st), zc = $('.zc', panel);
+  let open = -1, busy = false;
+  const rel = el => { const s = st.getBoundingClientRect(), r = el.getBoundingClientRect(); return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height }; };
+  async function zoomIn(i) {
+    if (busy) return; busy = true; open = i;
+    const p = P[i], r = rel(tiles[i]), W = st.clientWidth, H = st.clientHeight;
+    panel.style.setProperty('--bgc', p[1]);
+    $('#zm-t', panel).textContent = p[0]; $('.zm-d', panel).textContent = p[3];
+    $('.zm-stats', panel).innerHTML = p[4].map(s => `<div><b>${s[0]}</b><span>${s[1]}</span></div>`).join('');
+    panel.hidden = false;
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    tiles.forEach((t, k) => { if (k === i) return; const q = rel(t), dx = q.x + q.w / 2 - cx, dy = q.y + q.h / 2 - cy, d = Math.hypot(dx, dy) || 1; wa(t, [{ transform: 'none', opacity: 1 }, { transform: `translate(${dx / d * 46}px,${dy / d * 46}px) scale(.9)`, opacity: .2 }]); });
+    zc.style.opacity = 0;
+    await wa(panel, [{ transform: `translate(${r.x}px,${r.y}px) scale(${r.w / W},${r.h / H})`, borderRadius: '30px' }, { transform: 'none', borderRadius: '0px' }]);
+    await wa(zc, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: S.rm ? 1 : 260, easing: 'ease-out' });
+    $('.zm-back', panel).focus(); busy = false; say('已開啟' + p[0]);
+  }
+  async function zoomOut() {
+    if (busy || open < 0) return; busy = true;
+    const i = open, r = rel(tiles[i]), W = st.clientWidth, H = st.clientHeight;
+    await wa(zc, [{ opacity: 1 }, { opacity: 0 }], { duration: S.rm ? 1 : 120, easing: 'linear' });
+    tiles.forEach((t, k) => { if (k !== i) wa(t, [{ opacity: .2 }, { transform: 'none', opacity: 1 }]); });
+    await wa(panel, [{ transform: 'none', borderRadius: '0px' }, { transform: `translate(${r.x}px,${r.y}px) scale(${r.w / W},${r.h / H})`, borderRadius: '30px' }]);
+    panel.hidden = true; panel.getAnimations().forEach(a => a.cancel()); tiles.forEach(t => t.getAnimations().forEach(a => a.cancel()));
+    open = -1; busy = false; tiles[i].focus();
+  }
+  tiles.forEach((t, i) => t.addEventListener('click', () => zoomIn(i)));
+  $('.zm-back', panel).addEventListener('click', zoomOut);
+  st.addEventListener('keydown', e => { if (e.key === 'Escape') zoomOut(); });
+})();
+
+/* ═════════ 13 回合順序條 ═════════ */
+(() => {
+  const st = stage('turn');
+  const POOL = [['王', '王小姐', '退款進度'], ['陳', '陳先生', '發票抬頭'], ['林', '林小姐', '無法登入'], ['張', '張先生', '更改地址'], ['李', '李小姐', '重複扣款'], ['黃', '黃先生', '商品瑕疵'], ['吳', '吳小姐', '取消訂閱'], ['劉', '劉先生', '物流延遲'], ['蔡', '蔡小姐', '點數過期'], ['楊', '楊先生', '帳號合併']];
+  let seq = 0;
+  const mk = () => { const p = POOL[seq % POOL.length], t = { id: 'q' + seq, ini: p[0], name: p[1], q: p[2], wait: 1 + Math.floor(rnd(seq, 3) * 12) }; seq++; return t; };
+  let Q = Array.from({ length: 6 }, mk), nextT = mk(), sel = Q[3].id;
+  st.innerHTML = `<p class="stage-cap">SUPPORT QUEUE · 行動順序</p>
+    <div class="tq-wrap">
+      <div class="tq-row" role="listbox" aria-label="客服佇列，第一位是處理中" aria-orientation="horizontal"></div>
+      <div class="tq-gw"><span class="tq-gl">執行後</span><div class="tq-ghost" aria-hidden="true"></div></div>
+      <div class="tq-act" role="group" aria-label="佇列操作">
+        <button type="button" class="sbtn" data-a="done">${ic('ok')}完成目前</button>
+        <button type="button" class="sbtn" data-a="up">${ic('up')}升級急件</button>
+        <button type="button" class="sbtn" data-a="down">${ic('down')}延後</button>
+      </div>
+    </div>
+    <p class="stage-out"></p>`;
+  const row = $('.tq-row', st), ghost = $('.tq-ghost', st), out = $('.stage-out', st), acts = $$('.tq-act button', st);
+  const els = new Map(), gels = new Map();
+  const idx = (id, q = Q) => q.findIndex(t => t.id === id);
+  function tok(t) {
+    if (!els.has(t.id)) {
+      const el = document.createElement('div'); el.className = 'tq-tok'; el.setAttribute('role', 'option'); el.id = 'tq-' + t.id;
+      el.innerHTML = `<span class="tq-av" aria-hidden="true">${t.ini}</span><span class="tq-n">${t.name}</span><span class="tq-q">${t.q}</span><span class="tq-w">等 ${t.wait} 分</span>`;
+      el.addEventListener('click', () => select(t.id, true));
+      els.set(t.id, el);
+    }
+    return els.get(t.id);
+  }
+  const gtok = t => { if (!gels.has(t.id)) { const g = document.createElement('span'); g.className = 'tq-g'; g.innerHTML = `${t.ini}<b></b>`; gels.set(t.id, g); } return gels.get(t.id); };
+  function apply(a, q = Q) {
+    const n = q.slice(), i = idx(sel, n);
+    if (a === 'done') { n.shift(); n.push(nextT); }
+    else if (a === 'up' && i > 1) { const [t] = n.splice(i, 1); n.splice(Math.max(1, i - 2), 0, t); }
+    else if (a === 'down' && i >= 0 && i < n.length - 1) { const [t] = n.splice(i, 1); n.splice(Math.min(n.length, i + 2), 0, t); }
+    return n;
+  }
+  const can = a => { const i = idx(sel); return a === 'done' || (a === 'up' ? i > 1 : i >= 0 && i < Q.length - 1); };
+  const stag = (el, i) => i * E().stagger * .5;
+  function paintRow() {
+    Q.forEach((t, k) => {
+      const el = tok(t); row.appendChild(el); el.classList.toggle('now', k === 0);
+      const on = t.id === sel; el.setAttribute('aria-selected', on); el.tabIndex = on ? 0 : -1;
+      el.setAttribute('aria-label', `${k === 0 ? '處理中' : '第 ' + (k + 1) + ' 位'}，${t.name}，${t.q}，已等 ${t.wait} 分鐘`);
+    });
+    acts.forEach(b => b.setAttribute('aria-disabled', !can(b.dataset.a)));
+  }
+  function paintGhost(a) {
+    const on = !!a && can(a), n = on ? apply(a) : Q;
+    flip(() => [...ghost.children], () => {
+      ghost.replaceChildren(...n.map((t, k) => {
+        const g = gtok(t), was = idx(t.id), moved = on && a !== 'done' && t.id === sel, d = was - k;
+        g.classList.toggle('now', k === 0); g.classList.toggle('new', was < 0); g.classList.toggle('hot', moved);
+        $('b', g).textContent = was < 0 ? '新' : moved && d ? (d > 0 ? '↑' : '↓') + Math.abs(d) : '';
+        return g;
+      }));
+    }, { delay: stag, enter: [{ opacity: 0, transform: 'translateX(16px)' }, { opacity: 1, transform: 'none' }] });
+    st.classList.toggle('previewing', on);
+  }
+  function ptext(a) {
+    const i = idx(sel), t = Q[i];
+    if (!can(a)) return a === 'up' ? (i === 0 ? '處理中的客人不用再往前' : `${t.name} 已經是下一位`) : `${t.name} 已經在最後`;
+    if (a === 'done') return `預覽：${Q[0].name} 結案離開，${Q[1].name} 接手，新進 ${nextT.name}`;
+    return `預覽：${t.name} 從第 ${i + 1} 位${a === 'up' ? '升' : '降'}到第 ${idx(sel, apply(a)) + 1} 位`;
+  }
+  function select(id, focus) {
+    sel = id; paintRow(); if (focus) els.get(id).focus();
+    paintGhost(null); const i = idx(id); out.textContent = `已選擇 ${Q[i].name}（${i === 0 ? '處理中' : '第 ' + (i + 1) + ' 位'}）`;
+  }
+  function commit(a) {
+    if (!can(a)) { out.textContent = ptext(a); shake(row, .4); return; }
+    const leaving = a === 'done' ? Q[0] : null, mover = Q[idx(sel)];
+    flip(() => [...row.children].filter(e => !e.classList.contains('leave')), () => {
+      if (leaving) {
+        const el = els.get(leaving.id), rr = row.getBoundingClientRect(), r = el.getBoundingClientRect();
+        Object.assign(el.style, { left: r.left - rr.left + 'px', top: r.top - rr.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+        el.classList.add('leave'); el.removeAttribute('role'); el.setAttribute('aria-hidden', 'true'); el.tabIndex = -1; els.delete(leaving.id);
+        wa(el, [{ transform: 'none', opacity: 1 }, { transform: 'translate(-18px,-22px) scale(.82)', opacity: 0 }], { duration: S.rm ? 1 : 300, easing: 'ease-in' }).then(() => el.remove());
+      }
+      Q = apply(a); if (leaving) nextT = mk();
+      if (idx(sel) < 0) sel = Q[0].id;
+      paintRow();
+    }, { delay: stag, enter: [{ opacity: 0, transform: 'translateX(30px)' }, { opacity: 1, transform: 'none' }] });
+    if (leaving && !S.rm) wa($('.tq-av', els.get(Q[0].id)), [{ transform: 'scale(1.5)' }, { transform: 'none' }], { delay: 120 });
+    const msg = leaving ? `${leaving.name} 已結案，現在處理 ${Q[0].name}` : `${mover.name} ${a === 'up' ? '升級為急件' : '已延後'}，現在排第 ${idx(mover.id) + 1} 位`;
+    out.textContent = msg; say(msg);
+    const f = acts.find(b => b === document.activeElement);
+    paintGhost(f ? f.dataset.a : null);
+  }
+  row.addEventListener('keydown', e => {
+    const i = idx(sel), j = { ArrowRight: Math.min(Q.length - 1, i + 1), ArrowLeft: Math.max(0, i - 1), Home: 0, End: Q.length - 1 }[e.key];
+    if (j === undefined) return; e.preventDefault(); select(Q[j].id, true);
+  });
+  const anyActive = () => acts.some(x => x === document.activeElement || x.matches(':hover'));
+  acts.forEach(b => {
+    const a = b.dataset.a, pv = () => { paintGhost(a); out.textContent = ptext(a); };
+    const un = () => { if (!anyActive()) paintGhost(null); };
+    b.addEventListener('pointerenter', pv); b.addEventListener('focus', pv);
+    b.addEventListener('pointerleave', () => setTimeout(un)); b.addEventListener('blur', () => setTimeout(un));
+    b.addEventListener('click', () => commit(a));
+  });
+  paintRow(); paintGhost(null);
+})();
+
+/* ═════════ 14 連擊與連鎖 ═════════ */
+(() => {
+  const st = stage('combo');
+  const TASKS = ['回覆：發票什麼時候寄？', '審核：請假申請 #31', '標記：重複的退款單', '回覆：可以改收件地址嗎', '歸檔：九月對帳單', '審核：報帳 NT$1,240', '回覆：會員點數查詢', '標記：疑似垃圾信', '回覆：門市營業時間', '審核：加班申請 #12'];
+  const WIN = 2200, ROWS = 5;
+  let ti = 0, chain = 0, pts = 0, tmo = null, barA = null, live = false;
+  st.innerHTML = `<p class="stage-cap">INBOX ZERO · 連鎖</p>
+    <ul class="cb-list" aria-label="待處理項目"></ul>
+    <div class="cb-hud"><b class="cb-x" data-h="0" aria-hidden="true">×1</b><span class="cb-lab" aria-hidden="true">CHAIN</span><span class="cb-bar" aria-hidden="true"><i></i></span><span class="cb-pts">0 分</span></div>
+    <p class="stage-out">2.2 秒內完成下一件，倍率就會往上加</p>`;
+  const list = $('.cb-list', st), X = $('.cb-x', st), bar = $('.cb-bar i', st), P = $('.cb-pts', st), hud = $('.cb-hud', st), out = $('.stage-out', st);
+  const AMP = { calm: .05, std: .12, wild: .24 };
+  function mkRow() {
+    const li = document.createElement('li');
+    li.innerHTML = `<button type="button" class="cb-row"><i class="cb-box" aria-hidden="true">${ic('ok')}</i><span>${TASKS[ti++ % TASKS.length]}</span></button>`;
+    $('button', li).addEventListener('click', () => hit(li));
+    return li;
+  }
+  for (let i = 0; i < ROWS; i++) list.appendChild(mkRow());
+  function floatAt(el, text) {
+    const r = rectIn(el, st), f = document.createElement('span'); f.className = 'cb-float'; f.textContent = text;
+    f.style.left = r.x + r.w - 46 + 'px'; f.style.top = r.y + 4 + 'px'; st.appendChild(f);
+    if (S.rm) { setTimeout(() => f.remove(), 500); return; }
+    f.animate([{ transform: 'translateY(4px) scale(.7)', opacity: 0 }, { transform: 'translateY(-12px) scale(1.1)', opacity: 1, offset: .3 }, { transform: 'translateY(-26px)', opacity: 0 }], { duration: 700, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => f.remove();
+  }
+  function hit(li) {
+    if (li.classList.contains('done')) return;
+    const btn = $('button', li), had = document.activeElement === btn;
+    li.classList.add('done'); btn.setAttribute('aria-disabled', 'true');
+    chain = live ? chain + 1 : 1; live = true;
+    const m = Math.min(chain, 9), gain = 10 * m; pts += gain;
+    hud.classList.remove('broke');
+    X.textContent = '×' + m; X.dataset.h = Math.min(4, Math.floor(m / 2)); P.textContent = pts + ' 分';
+    if (!S.rm) wa(X, [{ transform: `scale(${1 + AMP[S.e] * Math.min(m, 5)})` }, { transform: 'scale(1)' }]);
+    if (m >= 5) shake(hud, .4);
+    floatAt(btn, '+' + gain);
+    clearTimeout(tmo); tmo = setTimeout(breakChain, WIN);
+    barA && barA.cancel();
+    barA = bar.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }], { duration: WIN, easing: 'linear', fill: 'forwards' });
+    out.textContent = chain > 1 ? `連鎖 ×${m} · +${gain} 分` : `+${gain} 分，接著完成下一件`;
+    if (chain > 1) say(`連鎖 ${m} 倍`);
+    const next = li.nextElementSibling;
+    if (had && next) $('button', next).focus();
+    setTimeout(() => {
+      const h = li.offsetHeight;
+      wa(li, [{ height: h + 'px', opacity: 1, marginBottom: '6px' }, { height: '0px', opacity: 0, marginBottom: '0px' }], { duration: S.rm ? 1 : 220, easing: 'ease-in' }).then(() => li.remove());
+      const n = mkRow(); list.appendChild(n);
+      wa(n, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { delay: S.rm ? 0 : 120 });
+    }, S.rm ? 0 : 260);
+  }
+  function breakChain() {
+    live = false; const c = Math.min(chain, 9); chain = 0;
+    if (c >= 2) {
+      hud.classList.add('broke'); out.innerHTML = `<b>連鎖中斷</b> · 這一串最高 ×${c}`; say(`連鎖中斷，這一串最高 ${c} 倍`);
+      shake(hud, .8);
+      if (!S.rm) wa(X, [{ transform: 'scale(1.2) rotate(-6deg)' }, { transform: 'none' }]);
+      setTimeout(() => { if (live) return; hud.classList.remove('broke'); X.textContent = '×1'; X.dataset.h = 0; }, 1200);
+    } else { X.textContent = '×1'; X.dataset.h = 0; out.textContent = '2.2 秒內完成下一件，倍率就會往上加'; }
+  }
+})();
+
+/* ═════════ 15 技能樹 ═════════ */
+(() => {
+  const st = stage('tree');
+  const N = [
+    { id: 'a', name: '建立帳號', x: .06, y: .5, req: [], d: '註冊完成，拿到第一個工作區。' },
+    { id: 'b', name: '上傳頭像', x: .36, y: .16, req: ['a'], d: '隊友在留言旁就認得出你。' },
+    { id: 'c', name: '第一個專案', x: .36, y: .84, req: ['a'], d: '從範本建立，會附三張示範任務。' },
+    { id: 'd', name: '邀請隊友', x: .66, y: .08, req: ['c'], d: '專案至少要有兩個人，才能指派任務。' },
+    { id: 'e', name: '設定提醒', x: .66, y: .5, req: ['b', 'c'], d: '截止前一天用 Email 或推播提醒。' },
+    { id: 'f', name: '連接 Slack', x: .66, y: .92, req: ['c'], d: '任務更新會同步到指定頻道。' },
+    { id: 'g', name: '自動化', x: .94, y: .5, req: ['d', 'e'], d: '解鎖「規則」：狀態改變時自動指派、通知、移欄。' }
+  ];
+  const by = Object.fromEntries(N.map(n => [n.id, n])), EG = [];
+  N.forEach(n => n.req.forEach(r => EG.push({ from: r, to: n.id })));
+  st.innerHTML = `<p class="stage-cap">ONBOARDING · 技能樹</p><button type="button" class="sbtn tr-reset">重置</button>
+    <svg class="tr-svg" aria-hidden="true">${EG.map((e, i) => `<path class="tr-e" data-i="${i}"/>`).join('')}${EG.map((e, i) => `<path class="tr-p" data-i="${i}"/>`).join('')}</svg>
+    ${N.map(n => `<button type="button" class="tr-node" data-id="${n.id}"><span class="tr-dot"></span><span class="tr-l">${n.name}</span></button>`).join('')}
+    <p class="stage-out">完成亮起的節點，看連線怎麼解鎖下一步</p>`;
+  const svg = $('.tr-svg', st), out = $('.stage-out', st), nodes = $$('.tr-node', st);
+  N.forEach(n => n.el = $(`.tr-node[data-id=${n.id}]`, st));
+  EG.forEach((e, i) => { e.base = $(`.tr-e[data-i="${i}"]`, st); e.prog = $(`.tr-p[data-i="${i}"]`, st); });
+  let done = new Set(['a']);
+  const DRAW = { calm: 720, std: 480, wild: 320 };
+  const pos = n => { const W = st.clientWidth, H = st.clientHeight; return [44 + n.x * (W - 88), 54 + n.y * (H - 54 - 84)]; };
+  const avail = n => !done.has(n.id) && n.req.every(r => done.has(r));
+  const miss = n => n.req.filter(r => !done.has(r)).map(r => by[r].name).join('、');
+  function layout() {
+    svg.setAttribute('viewBox', `0 0 ${st.clientWidth} ${st.clientHeight}`);
+    N.forEach(n => { const [x, y] = pos(n); n.el.style.left = x + 'px'; n.el.style.top = y + 'px'; });
+    EG.forEach(e => { const [x1, y1] = pos(by[e.from]), [x2, y2] = pos(by[e.to]), mx = (x1 + x2) / 2, d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`; e.base.setAttribute('d', d); e.prog.setAttribute('d', d); });
+  }
+  function paint(n, pop) {
+    const s = done.has(n.id) ? 'done' : avail(n) ? 'open' : 'lock', dot = $('.tr-dot', n.el);
+    n.el.dataset.s = s;
+    dot.innerHTML = s === 'done' ? ic('ok') : s === 'lock' ? ic('lock') : '<i></i>';
+    n.el.setAttribute('aria-label', `${n.name}，${s === 'done' ? '已完成' : s === 'open' ? '可以開始，按下即完成' : '未解鎖，需要先完成' + miss(n)}`);
+    n.el.setAttribute('aria-disabled', s === 'lock');
+    if (pop && !S.rm) {
+      wa(dot, [{ transform: 'scale(.35)' }, { transform: 'scale(1)' }]);
+      const b = document.createElement('i'); b.className = 'tr-burst'; n.el.appendChild(b);
+      b.animate([{ transform: 'translate(-50%,-50%) scale(1)', opacity: .9 }, { transform: `translate(-50%,-50%) scale(${1.5 + E().sparks / 18})`, opacity: 0 }], { duration: 620, easing: 'cubic-bezier(.2,.7,.3,1)' }).onfinish = () => b.remove();
+    }
+  }
+  function drawn(e, on) { e.prog.getAnimations().forEach(a => a.cancel()); e.prog.style.strokeDasharray = ''; e.prog.classList.toggle('on', on); }
+  async function complete(n) {
+    done.add(n.id); paint(n, true);
+    out.innerHTML = `完成 <b>${n.name}</b>`; say('完成' + n.name);
+    const outs = EG.filter(e => e.from === n.id), unlocked = [];
+    await Promise.all(outs.map((e, k) => {
+      const L = e.prog.getTotalLength(); e.prog.classList.add('on'); e.prog.style.strokeDasharray = L;
+      return wa(e.prog, [{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: DRAW[S.e], easing: 'cubic-bezier(.6,0,.3,1)', delay: k * E().stagger * 2.5 })
+        .then(() => { drawn(e, true); const c = by[e.to]; const was = c.el.dataset.s; paint(c, avail(c) && was !== 'open'); if (avail(c) && was !== 'open') unlocked.push(c.name); });
+    }));
+    if (done.size === N.length) { out.innerHTML = '<b>全部完成</b> · 自動化規則已開放'; say('全部完成，自動化規則已開放'); shake(st, .4); }
+    else if (unlocked.length) { out.innerHTML = `解鎖 <b>${unlocked.join('、')}</b>`; say('解鎖' + unlocked.join('、')); }
+  }
+  function reset() { done = new Set(['a']); EG.forEach(e => drawn(e, done.has(e.from))); N.forEach(n => paint(n)); out.textContent = '完成亮起的節點，看連線怎麼解鎖下一步'; }
+  N.forEach(n => {
+    const info = () => { const s = n.el.dataset.s; out.innerHTML = s === 'lock' ? `<b>${n.name}</b> · 需要先完成 ${miss(n)}` : `<b>${n.name}</b> · ${n.d}`; };
+    n.el.addEventListener('focus', info); n.el.addEventListener('pointerenter', info);
+    n.el.addEventListener('click', () => {
+      const s = n.el.dataset.s;
+      if (s === 'open') complete(n);
+      else if (s === 'lock') { out.innerHTML = `<b>${n.name}</b> 還沒解鎖：需要先完成 ${miss(n)}`; say(`${n.name}還沒解鎖，需要先完成${miss(n)}`); shake(n.el, .6); }
+      else info();
+    });
+  });
+  st.addEventListener('keydown', e => { const cur = e.target.closest('.tr-node'); if (!cur) return; const nx = spatial(nodes, cur, e.key); if (nx) { e.preventDefault(); nx.focus(); } });
+  $('.tr-reset', st).addEventListener('click', reset);
+  new ResizeObserver(layout).observe(st); layout(); reset();
+})();
+
+/* ═════════ 16 數字滾輪與實體化進度 ═════════ */
+(() => {
+  const st = stage('odo');
+  const GOAL = 60000, D = 5, YB = 166, YT = 46;
+  const JAR = 'M40,8 H80 V24 C80,30 104,32 104,54 V150 C104,161 96,168 85,168 H35 C24,168 16,161 16,150 V54 C16,32 40,30 40,24 Z';
+  let amt = 48000, reached = false;
+  const strip = Array.from({ length: 30 }, (_, i) => `<i>${i % 10}</i>`).join('');
+  st.innerHTML = `<p class="stage-cap">TRAVEL FUND · 京都 2027</p>
+    <div class="od-main">
+      <p class="od-l">旅行基金 · 已存</p>
+      <p class="od-num"><span class="od-cur" aria-hidden="true">NT$</span><span class="od-cols" aria-hidden="true">${Array.from({ length: D }, (_, k) => `<span class="od-c"><span class="od-s">${strip}</span></span>${k === 1 ? '<span class="od-sep">,</span>' : ''}`).join('')}</span><span class="vh od-txt"></span></p>
+      <p class="od-goal">目標 NT$60,000 · 還差 <b class="od-left"></b></p>
+      <div class="od-btns"><button type="button" class="sbtn" data-v="1200">存入 1,200</button><button type="button" class="sbtn" data-v="5000">存入 5,000</button><button type="button" class="sbtn" data-v="-800">提領 800</button></div>
+    </div>
+    <div class="od-jar" aria-hidden="true"><svg viewBox="0 0 120 172"><defs><clipPath id="od-clip"><path d="${JAR}"/></clipPath></defs>
+      <g clip-path="url(#od-clip)"><rect width="120" height="172" class="od-glass"/><path class="od-liq"/><path class="od-liq2"/></g>
+      <path d="${JAR}" class="od-out"/><line x1="12" x2="108" y1="${YT}" y2="${YT}" class="od-gl"/>
+    </svg><b class="od-pct"></b></div>
+    <p class="stage-out"></p>`;
+  const cols = $$('.od-s', st), cells = $$('.od-c', st), sep = $('.od-sep', st), out = $('.stage-out', st);
+  const liq = $('.od-liq', st), liq2 = $('.od-liq2', st), pct = $('.od-pct', st), jar = $('.od-jar', st), btns = $$('.od-btns button', st);
+  const pos = Array(D).fill(10);
+  const place = (s, k) => s.style.transform = `translateY(calc(${-pos[k]} * var(--dh)))`;
+  function snap(s, k) { pos[k] = 10 + ((pos[k] % 10) + 10) % 10; s.style.transition = 'none'; place(s, k); s.offsetHeight; s.style.transition = ''; }
+  cols.forEach((s, k) => s.addEventListener('transitionend', e => { if (e.propertyName === 'transform' && (pos[k] < 10 || pos[k] > 19)) snap(s, k); }));
+  /* 每一位都有 0–9 ×3 的長條：基準在中段；往上滾會到第三段、往下滾到第一段，轉完再無縫跳回中段 */
+  function setDigits(v, dir, instant) {
+    const ds = String(v).padStart(D, '0').split('').map(Number), nz = ds.findIndex(d => d > 0);
+    let rank = 0;
+    for (let k = D - 1; k >= 0; k--) {
+      const s = cols[k];
+      const step = p => { const c = ((p % 10) + 10) % 10; return ds[k] === c ? p : dir > 0 ? p + (ds[k] - c + 10) % 10 : p - (c - ds[k] + 10) % 10; };
+      let t = step(pos[k]);
+      if (t < 0 || t > 29) { snap(s, k); t = step(pos[k]); }
+      /* 只有會變的位數才排隊：最低位先轉，往高位依序延遲 */
+      s.style.transitionDelay = instant || S.rm || t === pos[k] ? '0ms' : rank++ * E().stagger * 1.4 + 'ms';
+      pos[k] = t;
+      if (instant) { s.style.transition = 'none'; place(s, k); s.offsetHeight; s.style.transition = ''; } else place(s, k);
+      cells[k].classList.toggle('lead', nz < 0 ? k < D - 1 : k < nz);
+    }
+    sep.classList.toggle('lead', nz < 0 || nz > 1);
+    $('.od-txt', st).textContent = `NT$${v.toLocaleString()}`;
+    $('.od-left', st).textContent = v >= GOAL ? '0（達標）' : 'NT$' + (GOAL - v).toLocaleString();
+    btns[2].setAttribute('aria-disabled', v < 800);
+  }
+  const L = new Spring(amt / GOAL, .0004), tilt = new Spring(0, .04);
+  let tt = 0;
+  function draw() {
+    const y = YB - clamp(L.x, 0, 1.03) * (YB - YT), a = tilt.x, w = Math.sin(tt * 9) * Math.min(4, Math.abs(a) * .45);
+    liq.setAttribute('d', `M0,${(y + a).toFixed(2)} C40,${(y + a * .35 + w).toFixed(2)} 80,${(y - a * .35 - w).toFixed(2)} 120,${(y - a).toFixed(2)} V172 H0 Z`);
+    liq2.setAttribute('d', `M0,${(y - a * .5 + 4).toFixed(2)} C40,${(y - w + 4).toFixed(2)} 80,${(y + w + 4).toFixed(2)} 120,${(y + a * .5 + 4).toFixed(2)} V172 H0 Z`);
+    pct.textContent = Math.round(clamp(L.x, 0, 1) * 100) + '%';
+  }
+  const kick = loop(dt => {
+    tt += dt;
+    const a = L.step(dt, .45, .8);
+    tilt.t = S.rm ? 0 : clamp(-L.v * 30 * (E().tilt / 11), -12, 12);
+    const b = tilt.step(dt, 1.6, .45);
+    draw(); return a || b;
+  });
+  function sparkle() {
+    if (S.rm) return;
+    const n = E().sparks;
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('i'); s.className = 'spark'; s.style.background = i % 2 ? 'var(--st-acc)' : 'var(--st-good)'; s.style.top = '40%'; jar.appendChild(s);
+      const ang = i / n * Math.PI * 2, d = 50 + rnd(i, 8) * 40;
+      s.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(ang) * d}px,${Math.sin(ang) * d}px) scale(.2)`, opacity: 0 }], { duration: 600 + rnd(i, 9) * 300, easing: 'cubic-bezier(.1,.7,.3,1)' }).onfinish = () => s.remove();
+    }
+    shake(jar, .6);
+  }
+  btns.forEach(b => b.addEventListener('click', () => {
+    const v = +b.dataset.v;
+    if (amt + v < 0 || amt + v > 99999) { shake(b, .5); out.textContent = v < 0 ? '餘額不足，不能提領' : '已經到上限'; return; }
+    amt += v; setDigits(amt, Math.sign(v)); L.t = Math.min(amt / GOAL, 1); kick();
+    const msg = `${v > 0 ? '存入' : '提領'} NT$${Math.abs(v).toLocaleString()}，目前 NT$${amt.toLocaleString()}`;
+    if (!reached && amt >= GOAL) { reached = true; out.innerHTML = '<b>達標！</b>可以開始訂機票了'; say(msg + '，達標'); setTimeout(sparkle, S.rm ? 0 : 260); }
+    else { if (amt < GOAL) reached = false; out.innerHTML = `${v > 0 ? '存入' : '提領'} <b>NT$${Math.abs(v).toLocaleString()}</b>`; say(msg); }
+  }));
+  setDigits(amt, 1, true); draw();
+})();
+
+/* ═════════ 17 世界地圖式導覽 ═════════ */
+(() => {
+  const st = stage('map');
+  const PW = 1000, PH = 640, PROG = 2;
+  const STOPS = [
+    ['起點', '寫下問題', '一句話寫出：這個 App 幫誰解決什麼問題。', 110, 500],
+    ['第 1 章', '使用者訪談', '找 5 個目標使用者聊 30 分鐘，整理出 3 個共同痛點。', 290, 350],
+    ['第 2 章', '線框稿', '用灰階方塊排出 4 個主要畫面，先不碰顏色。', 470, 480],
+    ['第 3 章', '視覺設計', '決定字體、色彩與元件語言，做出可以點的原型。', 610, 270],
+    ['第 4 章', '開發', '用 6 週做出最小可用版本，每週找 3 個人試用。', 830, 390],
+    ['第 5 章', '測試', '跑一輪 TestFlight，修掉最會讓人卡住的 10 個問題。', 760, 150],
+    ['終點', '上架', '準備截圖與說明文字，送審 App Store。', 920, 70]
+  ];
+  const cr = pts => { let d = `M${pts[0][0]},${pts[0][1]}`; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2; d += ` C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0]},${p2[1]}`; } return d; };
+  const D = cr(STOPS.map(s => [s[3], s[4]]));
+  const sState = i => i < PROG ? 'done' : i === PROG ? 'here' : 'todo', sText = i => ({ done: '已完成', here: '進行中', todo: '未開始' })[sState(i)];
+  const LAND = ['M60,420 C40,350 130,290 210,320 C290,350 350,290 390,350 C430,420 360,570 240,585 C140,598 80,500 60,420Z', 'M420,430 C430,370 520,340 560,390 C600,440 560,565 480,565 C430,560 410,490 420,430Z', 'M560,220 C580,160 700,150 760,200 C820,250 905,300 885,425 C865,485 765,475 720,425 C660,355 540,300 560,220Z', 'M690,110 C710,40 840,20 905,40 C965,60 985,130 945,165 C885,210 750,205 690,110Z'];
+  st.innerHTML = `<p class="stage-cap">COURSE MAP · 從零做出第一個 App</p>
+    <div class="mp-view" tabindex="0" role="region" aria-roledescription="地圖" aria-label="課程地圖。方向鍵平移，Tab 到據點後按 Enter 前往">
+      <div class="mp-plane" style="width:${PW}px;height:${PH}px">
+        <svg width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}" aria-hidden="true"><g class="mp-land">${LAND.map(d => `<path d="${d}"/>`).join('')}</g>
+          <path class="mp-route" d="${D}"/><path class="mp-done" d="${D}"/></svg>
+        ${STOPS.map((s, i) => `<button type="button" class="mp-stop" data-i="${i}" data-s="${sState(i)}" style="left:${s[3]}px;top:${s[4]}px" aria-label="${s[0]}，${s[1]}，${sText(i)}"><span class="mp-pin"></span><span class="mp-sl"><small>${s[0]}</small>${s[1]}</span></button>`).join('')}
+        <i class="mp-me" aria-hidden="true"></i>
+      </div>
+    </div>
+    <div class="mp-list" hidden><ol aria-label="課程章節">${STOPS.map((s, i) => `<li><button type="button" data-i="${i}"><span class="mp-ls" data-s="${sState(i)}" aria-hidden="true"></span><span><small>${s[0]} · ${sText(i)}</small><b>${s[1]}</b></span></button></li>`).join('')}</ol></div>
+    <div class="mp-bar"><button type="button" class="sbtn mp-prev">‹ 上一站</button><button type="button" class="sbtn mp-next">下一站 ›</button>
+      <div class="mp-seg" role="group" aria-label="檢視方式"><button type="button" class="sbtn" data-v="map" aria-pressed="true">地圖</button><button type="button" class="sbtn" data-v="list" aria-pressed="false">清單</button></div></div>
+    <p class="stage-out"></p>`;
+  const view = $('.mp-view', st), plane = $('.mp-plane', st), route = $('.mp-route', st), me = $('.mp-me', st), out = $('.stage-out', st), list = $('.mp-list', st);
+  const stops = $$('.mp-stop', st), prev = $('.mp-prev', st), next = $('.mp-next', st);
+  const total = route.getTotalLength(), at = [];
+  { const best = STOPS.map(() => [Infinity, 0]); for (let l = 0; l <= total; l += 2) { const p = route.getPointAtLength(l); STOPS.forEach((s, i) => { const d = Math.hypot(p.x - s[3], p.y - s[4]); if (d < best[i][0]) best[i] = [d, l]; }); } best.forEach((b, i) => at[i] = b[1]); at[0] = 0; at[STOPS.length - 1] = total; }
+  $('.mp-done', st).style.strokeDasharray = `${at[PROG]} ${total + 10}`;
+  let cur = PROG, follow = true, dragging = false, moved = false;
+  const s = new Spring(at[cur], .4), cx = new Spring(STOPS[cur][3], .3), cy = new Spring(STOPS[cur][4], .3);
+  const bounds = () => { const W = view.clientWidth, H = view.clientHeight, m = 40; return { x0: Math.min(W / 2 - m, PW / 2), x1: Math.max(PW - W / 2 + m, PW / 2), y0: Math.min(H / 2 - m, PH / 2), y1: Math.max(PH - H / 2 + m, PH / 2) }; };
+  const clampC = (x, y) => { const b = bounds(); return [clamp(x, b.x0, b.x1), clamp(y, b.y0, b.y1)]; };
+  const render = () => { plane.style.transform = `translate(${(view.clientWidth / 2 - cx.x).toFixed(1)}px,${(view.clientHeight / 2 - cy.x).toFixed(1)}px)`; };
+  const kick = loop(dt => {
+    const a = s.step(dt, .3, .85), p = route.getPointAtLength(clamp(s.x, 0, total));
+    me.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`;
+    if (follow) { const [tx, ty] = clampC(p.x, p.y); cx.t = tx; cy.t = ty; }
+    const b = dragging ? false : cx.step(dt, .5, 1), c = dragging ? false : cy.step(dt, .5, 1);
+    render(); return a || b || c || dragging;
+  });
+  function travel(i, quiet) {
+    cur = clamp(i, 0, STOPS.length - 1); follow = true; s.t = at[cur]; kick();
+    stops.forEach((b, k) => { b.classList.toggle('cur', k === cur); if (k === cur) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
+    prev.setAttribute('aria-disabled', cur === 0); next.setAttribute('aria-disabled', cur === STOPS.length - 1);
+    const t = STOPS[cur]; out.innerHTML = `<b>${t[0]} · ${t[1]}</b>　${t[2]}`; if (!quiet) say(`${t[0]}，${t[1]}，${sText(cur)}。${t[2]}`);
+  }
+  let sx = 0, sy = 0, c0x = 0, c0y = 0, vx = 0, vy = 0, lx = 0, ly = 0, lt = 0;
+  view.addEventListener('pointerdown', e => { if (e.button !== 0) return; dragging = true; moved = false; sx = lx = e.clientX; sy = ly = e.clientY; c0x = cx.x; c0y = cy.x; lt = performance.now(); vx = vy = 0; });
+  view.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (!moved && Math.hypot(dx, dy) < 6) return;
+    /* 超過門檻才 capture：太早 capture 會把據點按鈕的 click 吃掉 */
+    if (!moved) { moved = true; follow = false; view.setPointerCapture(e.pointerId); view.classList.add('grab'); kick(); }
+    const b = bounds(), band = (v, a, z) => v < a ? a - (a - v) * .35 : v > z ? z + (v - z) * .35 : v;
+    cx.x = cx.t = band(c0x - dx, b.x0, b.x1); cy.x = cy.t = band(c0y - dy, b.y0, b.y1);
+    const now = performance.now(), dtm = Math.max(1, now - lt);
+    vx = vx * .6 - (e.clientX - lx) / dtm * 1000 * .4; vy = vy * .6 - (e.clientY - ly) / dtm * 1000 * .4; lx = e.clientX; ly = e.clientY; lt = now;
+    render();
+  });
+  const up = () => { if (!dragging) return; dragging = false; view.classList.remove('grab'); if (!moved) return; const [tx, ty] = clampC(cx.x + vx * .2, cy.x + vy * .2); cx.t = tx; cy.t = ty; cx.v = vx * .5; cy.v = vy * .5; kick(); };
+  view.addEventListener('pointerup', up); view.addEventListener('pointercancel', up);
+  view.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+  view.addEventListener('keydown', e => {
+    const k = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]; if (!k) return;
+    e.preventDefault(); follow = false; const [tx, ty] = clampC(cx.t + k[0] * 90, cy.t + k[1] * 90); cx.t = tx; cy.t = ty; kick();
+  });
+  /* overflow:hidden 的容器在 Tab 聚焦到畫面外的元素時仍會被瀏覽器捲動，捲回 0，改用鏡頭移過去 */
+  [view, st].forEach(el => el.addEventListener('scroll', () => { el.scrollLeft = 0; el.scrollTop = 0; }));
+  stops.forEach((b, i) => {
+    b.addEventListener('click', () => travel(i));
+    b.addEventListener('focus', () => { if (dragging) return; follow = false; const [tx, ty] = clampC(STOPS[i][3], STOPS[i][4]); cx.t = tx; cy.t = ty; kick(); });
+  });
+  prev.addEventListener('click', () => { if (cur > 0) travel(cur - 1); });
+  next.addEventListener('click', () => { if (cur < STOPS.length - 1) travel(cur + 1); });
+  function setView(v) {
+    const m = v === 'map'; view.hidden = !m; list.hidden = m; prev.hidden = !m; next.hidden = !m;
+    $$('.mp-seg [data-v]', st).forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+    if (m) { const [tx, ty] = clampC(cx.t, cy.t); cx.x = cx.t = tx; cy.x = cy.t = ty; render(); kick(); }
+  }
+  $('.mp-seg', st).addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
+  $$('.mp-list button', st).forEach(b => b.addEventListener('click', () => { const i = +b.dataset.i; setView('map'); travel(i); stops[i].focus({ preventScroll: true }); }));
+  new ResizeObserver(() => { if (view.hidden) return; const [tx, ty] = clampC(cx.t, cy.t); cx.t = tx; cy.t = ty; render(); kick(); }).observe(view);
+  travel(PROG, true);
+  setView(st.clientWidth < 420 ? 'list' : 'map');
+})();
+
+/* ═════════ 18 對話式選項 ═════════ */
+(() => {
+  const st = stage('chat');
+  const FLOW = {
+    start: { bot: '嗨，我是客服小幫手。今天想處理什麼呢？', opts: [['付款失敗', 'pay'], ['忘記密碼', 'pw'], ['我想退貨', 'ret'], ['找真人客服', 'human']] },
+    pay: { bot: '是哪一種付款方式出問題？', opts: [['信用卡', 'payd'], ['LINE Pay', 'payd'], ['超商代碼', 'payd']] },
+    payd: { bot: x => `了解。我把「${x}」常見的失敗原因整理好了，也開了一張單 #P-2291，30 分鐘內會有人回覆你。`, opts: [['重新開始', 'start']] },
+    pw: { bot: '重設連結已寄到 g●●●@gmail.com，10 分鐘內有效。', opts: [['沒收到信', 'pw2'], ['好了，謝謝', 'bye']] },
+    pw2: { bot: '先看看垃圾郵件匣。也可以改用簡訊收驗證碼。', opts: [['改用簡訊', 'sms'], ['好了，謝謝', 'bye']] },
+    sms: { bot: '驗證碼已傳到尾號 ●●21 的手機。', opts: [['重新開始', 'start']] },
+    ret: { bot: '收到商品多久了？', opts: [['7 天內', 'ret7'], ['超過 7 天', 'retx']] },
+    ret7: { bot: '可以退！退貨單 #R-0815 已建立，物流明天上午會去收件。', opts: [['重新開始', 'start']] },
+    retx: { bot: '超過鑑賞期了，不過瑕疵品還是可以換貨。要幫你轉給專人嗎？', opts: [['好，轉專人', 'human'], ['先不用', 'bye']] },
+    human: { bot: '已幫你排進真人客服，前面還有 3 位，大約 4 分鐘。', opts: [['重新開始', 'start']] },
+    bye: { bot: '不客氣，祝你有美好的一天！', opts: [['重新開始', 'start']] }
+  };
+  st.innerHTML = `<p class="stage-cap">SUPPORT CHAT</p>
+    <div class="ch-thread" role="log" aria-label="對話紀錄"></div>
+    <div class="ch-opts" role="group" aria-label="回覆選項" tabindex="-1"></div>`;
+  const thread = $('.ch-thread', st), optsEl = $('.ch-opts', st);
+  let busy = true;
+  function add(cls, text, replace) {
+    const m = document.createElement('div'); m.className = 'ch-m ' + cls;
+    if (cls.includes('typing')) { m.innerHTML = '<i></i><i></i><i></i>'; m.setAttribute('aria-hidden', 'true'); if (S.rm) m.classList.add('still'); }
+    else m.textContent = text;
+    /* 新泡泡進來時，舊訊息也用 FLIP 往上推，而不是瞬間跳上去 */
+    flip(() => [...thread.children], () => { replace && replace.remove(); thread.appendChild(m); thread.scrollTop = thread.scrollHeight; });
+    return m;
+  }
+  async function botSay(key, pick) {
+    const node = FLOW[key];
+    const typing = add('bot typing');
+    await sleep(S.rm ? 250 : 700);
+    const m = add('bot', typeof node.bot === 'function' ? node.bot(pick) : node.bot, typing);
+    wa(m, [{ transform: 'scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }]);
+    await sleep(S.rm ? 0 : 200);
+    showOpts(node.opts);
+  }
+  function showOpts(opts) {
+    optsEl.innerHTML = opts.map((o, i) => `<button type="button" class="ch-o" data-i="${i}">${o[0]}</button>`).join('');
+    const bs = $$('.ch-o', optsEl);
+    bs.forEach((b, i) => { wa(b, [{ transform: 'translateY(14px) scale(.7)', opacity: 0 }, { transform: 'none', opacity: 1 }], { delay: i * E().stagger * 1.6 }); b.addEventListener('click', () => pick(opts[i], b)); });
+    /* 只有焦點本來就在舞台裡才搬焦點，避免載入時把頁面焦點搶走 */
+    if (st.contains(document.activeElement)) bs[0].focus({ preventScroll: true });
+    busy = false;
+  }
+  async function pick(o, b) {
+    if (busy) return; busy = true;
+    const had = st.contains(document.activeElement);
+    const bs = $$('.ch-o', optsEl), others = bs.filter(x => x !== b).reverse();
+    others.forEach((x, k) => wa(x, [{ transform: 'none', opacity: 1 }, { transform: 'translateY(8px) scale(.6)', opacity: 0 }], { duration: S.rm ? 1 : 180, easing: 'ease-in', delay: k * E().stagger * .6 }));
+    const from = rectIn(b, st), fromBg = getComputedStyle(b).backgroundColor, fromFg = getComputedStyle(b).color;
+    const m = add('me', o[0]); m.style.visibility = 'hidden';
+    const to = rectIn(m, st), cs = getComputedStyle(m);
+    const fly = document.createElement('div'); fly.className = 'ch-m me ch-fly'; fly.textContent = o[0]; fly.setAttribute('aria-hidden', 'true');
+    Object.assign(fly.style, { left: to.x + 'px', top: to.y + 'px', width: to.w + 'px', height: to.h + 'px' });
+    st.appendChild(fly); b.style.visibility = 'hidden';
+    if (had) optsEl.focus({ preventScroll: true });
+    await wa(fly, [{ transform: `translate(${from.x - to.x}px,${from.y - to.y}px) scale(${from.w / to.w},${from.h / to.h})`, backgroundColor: fromBg, color: fromFg }, { transform: 'none', backgroundColor: cs.backgroundColor, color: cs.color }]);
+    m.style.visibility = ''; fly.remove(); optsEl.innerHTML = '';
+    if (o[1] === 'start') {
+      await sleep(S.rm ? 0 : 300);
+      await Promise.all([...thread.children].map(x => wa(x, [{ opacity: 1 }, { opacity: 0 }], { duration: S.rm ? 1 : 200, easing: 'linear' })));
+      thread.innerHTML = '';
+    }
+    botSay(o[1], o[0]);
+  }
+  optsEl.addEventListener('keydown', e => {
+    const bs = $$('.ch-o', optsEl), i = bs.indexOf(document.activeElement); if (i < 0) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); bs[(i + 1) % bs.length].focus(); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); bs[(i + bs.length - 1) % bs.length].focus(); }
+  });
+  botSay('start');
+})();
+
+applyEnergy();
+mqRM.addEventListener('change', () => { S.rm = mqRM.matches; rmBox.checked = S.rm; applyEnergy(); });
+})();
+</script>

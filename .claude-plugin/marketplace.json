@@ -1,0 +1,12 @@
+{
+  "name": "gpwork4u-skills",
+  "description": "General-purpose Claude Code skills by gpwork4u",
+  "owner": { "name": "gpwork4u", "url": "https://github.com/gpwork4u" },
+  "plugins": [
+    {
+      "name": "ui-design",
+      "source": "./skills/ui-design",
+      "description": "UI 設計工作流程：style genome 藝術方向、版面組合法、風格化表現（母題 × 表現力等級）、動態語法，到 shadcn/ui 實作"
+    }
+  ]
+}
