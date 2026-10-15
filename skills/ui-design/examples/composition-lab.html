@@ -1,0 +1,1391 @@
+<title>版面組合實驗室</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Cormorant+SC:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,600;1,600&family=DM+Mono:wght@400;500&family=DotGothic16&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;600;900&family=Oswald:wght@500;600&family=VT323&display=swap">
+<style>
+/* Layout：上方是基因控制列，左邊舞台渲染一整頁「網站」（像瀏覽器視窗），右邊是這組基因的契約與評分；外殼中性，跟表現力實驗室同一家族 */
+:root{
+  --bg:#F2F1EE; --surface:#FFFFFF; --fg:#1C1B19; --muted:#66635C; --line:#D9D6CE;
+  --sel:#1C1B19; --sel-fg:#FFFFFF; --focus:#2457F5; --good:#0F7B52; --warn:#A35A00; --bad:#B42318;
+  --f-ui:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#121211; --surface:#1B1A18; --fg:#ECEAE4; --muted:#A39F96; --line:#34322E; --sel:#ECEAE4; --sel-fg:#121211; --focus:#86A6FF; --good:#5BD3A0; --warn:#F0B35A; --bad:#FF8A7A; color-scheme:dark }
+}
+:root[data-theme="dark"]{ --bg:#121211; --surface:#1B1A18; --fg:#ECEAE4; --muted:#A39F96; --line:#34322E; --sel:#ECEAE4; --sel-fg:#121211; --focus:#86A6FF; --good:#5BD3A0; --warn:#F0B35A; --bad:#FF8A7A; color-scheme:dark }
+
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);margin:0;font-size:15px}
+*,*::before,*::after{box-sizing:border-box}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+[hidden]{display:none!important}
+.vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+.lab{max-width:1440px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px;display:grid;gap:20px}
+@media (min-width:900px){.lab{padding-left:max(32px,env(safe-area-inset-left,0px));padding-right:max(32px,env(safe-area-inset-right,0px))}}
+.lab > *{min-width:0}
+.lab-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 32px}
+.lab-head h1{font-size:1.6rem;font-weight:900;margin:0;letter-spacing:.02em;text-wrap:balance}
+.lab-head p{margin:0;color:var(--muted);max-width:66ch;font-size:.92rem;line-height:1.65}
+
+.genes{display:grid;gap:14px}
+.gene-row{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end}
+.ctl{display:flex;flex-direction:column;gap:6px;min-width:0;max-width:100%}
+.ctl-label{font:500 .7rem/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ctl-label b{font-family:var(--f-ui);font-weight:700;letter-spacing:.04em;color:var(--fg);text-transform:none;font-size:.78rem;margin-left:6px}
+.seg{display:flex;flex-wrap:wrap;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px;gap:3px}
+.seg button{appearance:none;border:0;background:transparent;font-size:.86rem;font-weight:500;padding:7px 11px;border-radius:4px;cursor:pointer;line-height:1.2;min-height:34px}
+.seg button[aria-pressed="true"]{background:var(--sel);color:var(--sel-fg)}
+.seg button:hover:not([aria-pressed="true"]){background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:6px}
+.pick{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:8px 9px 9px;cursor:pointer;display:grid;gap:6px;text-align:left;min-width:0}
+.pick svg{width:100%;height:30px;display:block}
+.pick svg *{vector-effect:non-scaling-stroke}
+.pick .pk-n{font-size:.84rem;font-weight:700;line-height:1.2}
+.pick .pk-e{font:400 .66rem var(--f-mono);color:var(--muted);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pick[aria-pressed="true"]{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
+.pick[aria-pressed="true"] .pk-n::after{content:" ●";font-size:.6em;vertical-align:middle}
+.pick:hover:not([aria-pressed="true"]){border-color:color-mix(in srgb,var(--fg) 40%,var(--line))}
+.pick .pk-sw{display:flex;height:30px;border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+.pick .pk-sw i{flex:1}
+.pick .compat{font:500 .66rem var(--f-mono);justify-self:start;padding:1px 5px;border-radius:3px;border:1px solid currentColor}
+.c-p2{color:var(--good)} .c-p1{color:var(--good);opacity:.75} .c-0{color:var(--muted)} .c-m1{color:var(--warn)} .c-m2{color:var(--bad)}
+.gsch rect,.gsch circle,.gsch path,.gsch line,.gsch polygon{fill:none;stroke:currentColor;stroke-width:1.2}
+.gsch .f{fill:currentColor;stroke:none}
+.btn-act{appearance:none;border:1px solid var(--sel);background:var(--sel);color:var(--sel-fg);border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer;min-height:40px;font-size:.88rem}
+.btn-act.ghost{background:var(--surface);color:var(--fg);border-color:var(--line)}
+.btn-act:hover{filter:brightness(1.12)}
+.seed{font:500 .9rem var(--f-mono);padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-height:40px;display:inline-flex;align-items:center;font-variant-numeric:tabular-nums}
+.chk{display:flex;align-items:center;gap:8px;font-size:.86rem;cursor:pointer;min-height:40px}
+.chk input{width:16px;height:16px;accent-color:var(--fg)}
+.act-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+.workbench{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+@media (max-width:1080px){.workbench{grid-template-columns:minmax(0,1fr)}}
+.stage{border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px var(--line);background:var(--surface);min-width:0}
+.chrome{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid var(--line);font:400 .76rem var(--f-mono);color:var(--muted);min-width:0}
+.chrome .url{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg);border-radius:4px;padding:4px 10px}
+.chrome .w{font-variant-numeric:tabular-nums;white-space:nowrap}
+.viewport{position:relative;height:min(80vh,900px);overflow-y:auto;overflow-x:hidden;background:color-mix(in srgb,var(--fg) 6%,var(--bg));overscroll-behavior:contain}
+.site{container-type:inline-size;container-name:site;margin-inline:auto;width:100%;min-height:100%}
+.stage[data-device="phone"] .site{max-width:390px;box-shadow:0 0 0 1px var(--line)}
+.veil{position:absolute;inset:0;pointer-events:none;z-index:20;overflow:hidden}
+.veil > *{position:absolute}
+
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:grid;gap:20px;font-size:.88rem;line-height:1.55;min-width:0}
+@media (min-width:1081px){.spec{position:sticky;top:max(12px,env(safe-area-inset-top,0px));max-height:calc(100vh - 24px);overflow-y:auto}}
+.spec section{display:grid;gap:10px;min-width:0}
+.spec h2{font:600 .7rem/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0}
+.spec-name{font-size:1.25rem;font-weight:900;margin:0;line-height:1.25;text-wrap:balance}
+.spec-thesis{margin:0;color:var(--muted)}
+.score{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:center}
+.score-n{font:600 2.6rem/1 var(--f-mono);font-variant-numeric:tabular-nums;grid-row:span 2}
+.meter{height:8px;border-radius:2px;background:color-mix(in srgb,var(--fg) 10%,transparent);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--fg);transition:width .4s}
+.score-v{font-size:.8rem;color:var(--muted)}
+.spec dl{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 12px;margin:0}
+.spec dt{color:var(--muted)}
+.spec dd{margin:0;min-width:0}
+.spec dd b{font-family:var(--f-mono);font-weight:600;margin-right:6px}
+.cl-list{margin:4px 0 0;padding-left:1.1em;color:var(--muted);font-size:.82rem}
+.cl-list li{margin-block:2px}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}
+.swatches span{display:inline-flex;align-items:center;gap:6px;font-size:.78rem}
+.swatches i{width:14px;height:14px;border-radius:2px;box-shadow:0 0 0 1px var(--line)}
+.budget{display:grid;gap:4px}
+.bud-row{display:grid;grid-template-columns:3.4em minmax(0,1fr);gap:8px;align-items:center}
+.bud-row > span{font-size:.82rem;color:var(--muted)}
+.bud-seg{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+.bud-seg button{appearance:none;border:1px solid var(--line);background:var(--surface);font:500 .74rem var(--f-mono);padding:5px 0;cursor:pointer;border-radius:3px;min-height:30px}
+.bud-seg button.lit{background:color-mix(in srgb,var(--fg) 14%,var(--surface))}
+.bud-seg button[aria-checked="true"]{background:var(--sel);color:var(--sel-fg);border-color:var(--sel)}
+.bud-note{font-size:.78rem;color:var(--muted);margin:0}
+.yaml{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:12px;font:400 .74rem/1.55 var(--f-mono);overflow-x:auto;white-space:pre;max-height:340px;overflow-y:auto}
+.copy{justify-self:start}
+
+.rules{display:grid;gap:14px;margin-top:8px}
+.rules h2{font-size:1.15rem;margin:0;font-weight:900}
+.rules > p{margin:0;color:var(--muted);max-width:72ch;line-height:1.7}
+.rule-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:0;border-top:1px solid var(--line)}
+.rule-grid article{padding:16px 18px 18px 0;border-bottom:1px solid var(--line);display:grid;gap:6px;align-content:start}
+@media (min-width:700px){.rule-grid article{padding-right:24px}}
+.rule-grid h3{margin:0;font-size:.98rem;line-height:1.35}
+.rule-grid h3 small{display:block;font:400 .7rem var(--f-mono);color:var(--muted);letter-spacing:.06em;margin-bottom:4px;text-transform:uppercase}
+.rule-grid p{margin:0;font-size:.86rem;line-height:1.65;color:var(--muted)}
+
+/* ═════════ 舞台內的「網站」：共用骨架 ═════════ */
+.page{
+  --rad:3px; --rw:1px; --ds:1; --fw-d:800; --tr-d:-.01em; --tt-d:none; --dens:1;
+  --px:clamp(16px,6cqi,64px); --sp:calc(var(--dens) * clamp(30px,6.4cqi,84px)); --col-gap:clamp(12px,2.2cqi,28px);
+  background:var(--p-bg); color:var(--p-ink); font-family:var(--f-b); font-size:15px; line-height:1.65;
+  position:relative; isolation:isolate; overflow:hidden; counter-reset:sec; min-height:100%;
+}
+.page.d-airy{--dens:1.35} .page.d-dense{--dens:.62; font-size:14px}
+.page a{color:inherit;text-decoration:none}
+.page :focus-visible{outline:2px solid var(--p-focus);outline-offset:3px}
+.page p,.page h1,.page h2,.page h3,.page ul,.page ol,.page blockquote,.page figure,.page dl,.page dd{margin:0}
+.page ul,.page ol{padding:0;list-style:none}
+.r{position:relative;padding-block:var(--sp);padding-inline:var(--px);z-index:0}
+.r::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none}
+.r[data-x="3"]::before{background:var(--tex,none);opacity:var(--tex-o,1);-webkit-mask:var(--tex-mask,none);mask:var(--tex-mask,none)}
+.r-body,.r-proof,.r-list,.r-cta{counter-increment:sec}
+.h1{font:800 calc(clamp(30px,7cqi,84px) * var(--ds))/1.06 var(--f-b);text-wrap:balance;letter-spacing:-.01em}
+.h2{font:700 calc(clamp(21px,3.3cqi,36px) * var(--ds))/1.2 var(--f-b);text-wrap:balance}
+.h3{font-weight:700;font-size:1.06em;line-height:1.35}
+.r:not([data-x="0"]) :is(.h1,.h2){font-family:var(--f-d);font-weight:var(--fw-d);letter-spacing:var(--tr-d);text-transform:var(--tt-d)}
+.kick,.meta{font-family:var(--f-m);font-size:.78em;letter-spacing:.05em;color:var(--p-muted);line-height:1.5}
+.kick{color:var(--p-acc-t);font-weight:500}
+.lede{font-size:1.08em;max-width:36em}
+.num{font-variant-numeric:tabular-nums}
+.em{font-style:normal;color:var(--p-acc-t)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-height:44px;padding:.55em 1.15em;border-radius:var(--rad);background:var(--p-ink);color:var(--p-bg);font-weight:700;font-size:.94em;border:1px solid var(--p-ink);position:relative;isolation:isolate;line-height:1.25;text-align:center}
+.page a.btn{color:var(--p-bg)}
+.btn.ghost,.page a.btn.ghost{background:transparent;color:var(--p-ink)}
+.btn-s{min-height:38px;font-size:.84em;padding:.4em .9em}
+.acts{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.tilt{display:block}
+.r[data-x="3"] .tilt{rotate:var(--a,0deg);transform-origin:0 50%}
+.r[data-x="3"] .h1.tilt{rotate:calc(var(--a,0deg) * .5);margin-block:.25em}
+.r:not([data-x="3"]) .orn{display:none!important}
+.art{display:none}
+.r:is([data-x="2"],[data-x="3"]) .art{display:block}
+.art svg{display:block;width:100%;height:auto;overflow:visible}
+.row{display:block;transition:background-color .18s,color .18s}
+.r[data-x="0"] .row:hover,.r[data-x="1"] .row:hover{background:var(--p-surf)}
+.q p{font-size:1.18em;line-height:1.55;max-width:30em}
+.q footer{margin-top:10px}
+.mk{display:inline-grid;place-items:center;width:1.9em;height:1.9em;font-weight:900;border:1.5px solid currentColor;border-radius:var(--rad);font-size:.82em;line-height:1}
+.brand{display:inline-flex;align-items:center;gap:.6em;font-weight:800;letter-spacing:.02em}
+.r:not([data-x="0"]) .brand .bn{font-family:var(--f-d);font-weight:var(--fw-d)}
+.nav ul{display:flex;flex-wrap:wrap;gap:4px 18px}
+.nav a{display:inline-block;padding:6px 0;font-size:.92em;position:relative}
+.nav a[aria-current]{font-weight:700}
+.nav a[aria-current]::after{content:"";position:absolute;left:0;right:0;bottom:2px;height:2px;background:var(--p-acc)}
+.r-nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 28px;padding-block:calc(var(--sp) * .28)}
+.r-foot{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;justify-content:space-between;padding-block:calc(var(--sp) * .5);border-top:1px solid var(--p-rule)}
+.r-foot ul{display:flex;gap:14px;flex-wrap:wrap;font-size:.85em}
+.log .row{display:grid;grid-template-columns:7.2em minmax(0,1fr) auto;gap:6px 16px;align-items:baseline;padding-block:12px;border-bottom:1px solid var(--p-rule)}
+.tag{font-size:.74em;padding:1px 7px;border:1px solid var(--p-rule);border-radius:var(--rad);white-space:nowrap}
+.sample{font:500 10px var(--f-m);letter-spacing:.08em;color:var(--p-muted);border:1px dashed var(--p-muted);padding:1px 6px;border-radius:2px;display:inline-block}
+@container site (max-width:560px){
+  .r-nav .nav{order:3;width:100%}
+  .r-nav .nav ul{gap:2px 14px}
+  .log .row{grid-template-columns:minmax(0,1fr) auto}
+  .log .row time{grid-column:1/-1}
+}
+
+/* ═════════ 版面語法 ═════════ */
+
+/* 0 樣板（對照組） */
+.g-template .r{text-align:center}
+.g-template .r-nav{text-align:left}
+.g-template .r-nav .nav ul{background:var(--p-surf);padding:5px 16px;border-radius:999px;box-shadow:0 1px 3px rgb(0 0 0 / .08)}
+.g-template .r-nav .btn,.g-template .acts .btn{border-radius:999px}
+.g-template .r-hero{display:grid;justify-items:center;gap:20px;padding-block:calc(var(--sp) * 1.4)}
+.g-template .badge{font-size:.8em;font-weight:600;padding:4px 12px;border-radius:999px;background:var(--p-surf);color:var(--p-acc-t);border:1px solid var(--p-rule)}
+.g-template .lede{margin-inline:auto;color:var(--p-muted)}
+.g-template .acts{justify-content:center}
+.g-template .r-hero .art{max-width:420px;width:70%;margin-top:8px}
+.g-template .logos{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 36px;margin-top:20px;font:700 .82em var(--f-m);letter-spacing:.14em;color:var(--p-muted);opacity:.7}
+.g-template .h2{margin-bottom:28px}
+.cards3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;text-align:left}
+.cards3 .card{background:var(--p-bg);border:1px solid var(--p-rule);border-radius:16px;padding:24px;box-shadow:0 4px 18px rgb(0 0 0 / .06);display:grid;gap:10px;align-content:start}
+.cards3 .ico{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--p-acc) 14%,transparent);color:var(--p-acc-t)}
+.cards3 .ico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cards3 p{color:var(--p-muted);font-size:.92em}
+.tp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-bottom:32px}
+.tp-stats .v{font-size:calc(clamp(30px,5cqi,52px) * var(--ds));font-weight:800;line-height:1.1;color:var(--p-acc-t)}
+.g-template .q{max-width:640px;margin-inline:auto;background:var(--p-surf);border-radius:16px;padding:28px}
+.g-template .q p{margin-inline:auto}
+.g-template .r-list .cards3 .card{gap:6px}
+.g-template .r-cta{background:linear-gradient(120deg,var(--p-acc),var(--p-acc2));color:var(--p-on-acc);display:grid;gap:20px;justify-items:center}
+.g-template .r-cta .btn{background:var(--p-on-acc);color:var(--p-acc);border-color:var(--p-on-acc)}
+.g-template .r-cta .btn.ghost{background:transparent;color:var(--p-on-acc)}
+.g-template .r-foot{text-align:left}
+@container site (max-width:620px){ .cards3,.tp-stats{grid-template-columns:minmax(0,1fr)} }
+
+/* 1 非對稱網格 */
+.sw{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--col-gap);row-gap:22px;align-items:start}
+.g-swiss .r-hero .kick{grid-column:1/-1}
+.g-swiss .r-hero .h1{grid-column:1/10;font-size:calc(clamp(34px,8.2cqi,104px) * var(--ds))}
+.g-swiss .sw-num{grid-column:10/13;grid-row:2;justify-self:end;font:600 calc(clamp(36px,9cqi,120px) * var(--ds))/.82 var(--f-m);color:var(--p-acc-t);text-align:right}
+.g-swiss .sw-num small{display:block;font:500 11px/1.4 var(--f-m);letter-spacing:.08em;color:var(--p-muted);margin-top:8px}
+.g-swiss .r-hero .lede{grid-column:6/12}
+.g-swiss .r-hero .acts{grid-column:6/12}
+.g-swiss .r-hero .art{grid-column:1/5;grid-row:3/5;align-self:center}
+.sw-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:18px}
+.sw-rows{border-top:var(--rw) solid var(--p-ink)}
+.sw-rows .row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--col-gap);padding:18px 8px;margin-inline:-8px;border-bottom:1px solid var(--p-rule);align-items:baseline}
+.sw-rows .idx{grid-column:1/2;font:500 .82em var(--f-m);color:var(--p-muted)}
+.sw-rows .h3{grid-column:2/6}
+.sw-rows .d{grid-column:6/11;color:var(--p-muted);font-size:.94em}
+.sw-rows .meta{grid-column:11/13;text-align:right}
+.sw-rows .feat .h3{font-size:1.38em;line-height:1.2}
+.sw-stats{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--col-gap);row-gap:24px;margin-bottom:clamp(28px,5cqi,56px)}
+.sw-stats > div{grid-column:span 4;border-top:1px solid var(--p-ink);padding-top:12px}
+.sw-stats .big{font:600 calc(clamp(32px,6cqi,72px) * var(--ds))/1 var(--f-m);letter-spacing:-.02em}
+.sw-stats .big small{font-size:.32em;margin-left:4px;letter-spacing:0}
+.g-swiss .q{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--col-gap)}
+.g-swiss .q > *{grid-column:4/12}
+.g-swiss .r-list .sw > .h2{grid-column:1/5}
+.g-swiss .r-list .sw > .log{grid-column:6/13}
+.g-swiss .r-cta .h2{font-size:calc(clamp(26px,5.6cqi,64px) * var(--ds));line-height:1.1;max-width:14em;margin-bottom:24px}
+@container site (max-width:620px){
+  .sw,.sw-stats,.sw-rows .row,.g-swiss .q{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .g-swiss .r-hero .h1{grid-column:1/-1}
+  .g-swiss .sw-num{grid-column:4/7;grid-row:auto}
+  .g-swiss .r-hero .lede,.g-swiss .r-hero .acts{grid-column:1/-1}
+  .g-swiss .r-hero .art{grid-column:1/4;grid-row:auto}
+  .sw-rows .idx{grid-column:1/2}
+  .sw-rows .h3,.sw-rows .d,.sw-rows .meta{grid-column:2/-1;text-align:left}
+  .sw-stats > div{grid-column:span 3}
+  .sw-stats > div:first-child{grid-column:1/-1}
+  .g-swiss .q > *{grid-column:2/-1}
+  .g-swiss .r-list .sw > .h2,.g-swiss .r-list .sw > .log{grid-column:1/-1}
+}
+
+/* 2 編輯刊物 */
+.ed-mast{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-block:var(--rw) solid var(--p-ink);padding-block:8px;margin-bottom:clamp(20px,4cqi,40px)}
+.ed-mast .ed-no{font:600 .8em var(--f-m)}
+.g-editorial .r-hero .h1{font-size:calc(clamp(34px,7.6cqi,96px) * var(--ds));max-width:13em;margin-block:10px 24px}
+.ed-cols{columns:2 16em;column-gap:var(--col-gap);column-rule:1px solid var(--p-rule)}
+.ed-cols > *{break-inside:avoid;margin-bottom:14px}
+.ed-cols .lede{font-size:1.04em}
+.drop::first-letter{float:left;font:900 3.3em/.86 var(--f-d);margin:.06em .1em 0 0;color:var(--p-acc-t)}
+.r[data-x="0"] .drop::first-letter{font-family:var(--f-b)}
+.ed-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.62fr);gap:var(--col-gap);align-items:start}
+.ed-hero .art{grid-column:2;grid-row:1/3}
+.r:not(:is([data-x="2"],[data-x="3"])) .ed-hero{grid-template-columns:minmax(0,1fr)}
+.toc{border-top:var(--rw) solid var(--p-ink);margin-top:16px}
+.toc li{border-bottom:1px solid var(--p-rule)}
+.toc .row{display:grid;grid-template-columns:minmax(0,auto) minmax(2em,1fr) auto;gap:10px;align-items:baseline;padding:14px 6px 4px;margin-inline:-6px}
+.toc .h3 small{font:400 .72em var(--f-m);color:var(--p-muted);margin-left:8px;letter-spacing:.06em}
+.toc .lead{border-bottom:1.5px dotted var(--p-muted);transform:translateY(-.3em)}
+.toc .d{color:var(--p-muted);font-size:.92em;padding:0 0 14px;max-width:40em}
+.toc .feat .h3{font-size:1.3em}
+.pull{border-block:var(--rw) solid var(--p-ink);padding-block:22px;margin-bottom:28px}
+.pull p{font:600 calc(clamp(20px,3.4cqi,36px) * var(--ds))/1.35 var(--f-d);max-width:22em}
+.r[data-x="0"] .pull p{font-family:var(--f-b)}
+.ed-figs{display:flex;flex-wrap:wrap;gap:12px 40px}
+.ed-figs div{display:grid;gap:2px}
+.ed-figs .v{font:600 1.6em var(--f-m)}
+.g-editorial .r-list .log{columns:2 18em;column-gap:var(--col-gap)}
+.g-editorial .r-list .log li{break-inside:avoid}
+.g-editorial .r-list .log .row{grid-template-columns:minmax(0,1fr);gap:2px}
+.g-editorial .r-list .log .tag{justify-self:start}
+.g-editorial .r-cta{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:end;border-top:var(--rw) solid var(--p-ink)}
+@container site (max-width:620px){
+  .ed-hero{grid-template-columns:minmax(0,1fr)}
+  .ed-hero .art{grid-column:1;grid-row:auto;max-width:260px}
+  .g-editorial .r-cta{grid-template-columns:minmax(0,1fr)}
+}
+
+/* 3 帳簿索引 */
+.lg-head{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);border:var(--rw) solid var(--p-ink)}
+.lg-head > *{padding:clamp(14px,2.4cqi,24px)}
+.lg-title{border-right:1px solid var(--p-ink);display:grid;gap:12px;align-content:start}
+.g-ledger .r-hero .h1{font-size:calc(clamp(28px,5.6cqi,68px) * var(--ds))}
+.lg-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;align-content:start;padding:0!important}
+.lg-fields > div{padding:12px 14px;border-bottom:1px solid var(--p-rule);border-right:1px solid var(--p-rule);display:grid;gap:2px}
+.lg-fields > div:nth-child(2n){border-right:0}
+.lg-fields dt{font:500 .72em var(--f-m);color:var(--p-muted);letter-spacing:.06em}
+.lg-fields dd{font:600 1.2em var(--f-m);font-variant-numeric:tabular-nums}
+.lg-fields dd small{font-size:.6em;margin-left:3px}
+.lg-foot{grid-column:1/-1;border-top:1px solid var(--p-ink);display:flex;flex-wrap:wrap;gap:16px 28px;justify-content:space-between;align-items:center}
+.lg-foot .art{width:140px}
+.tbl-wrap{overflow-x:auto;border:var(--rw) solid var(--p-ink);margin-top:14px}
+.lg-t{width:100%;border-collapse:collapse;font-size:.94em}
+.lg-t th{font:500 .74em var(--f-m);letter-spacing:.06em;color:var(--p-muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--p-ink);white-space:nowrap}
+.lg-t td{padding:12px;border-bottom:1px solid var(--p-rule);vertical-align:baseline}
+.lg-t tr.row{display:table-row}
+.lg-t .r-al{text-align:right}
+.lg-t td.num,.lg-t .idx{font-family:var(--f-m);white-space:nowrap}
+.lg-t .d{color:var(--p-muted)}
+.lg-t tfoot td{border-top:3px double var(--p-ink);border-bottom:0;font-weight:700}
+.lg-t .feat td:first-child{box-shadow:inset 3px 0 0 var(--p-acc)}
+.lg-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:var(--rw) solid var(--p-ink);margin-bottom:24px}
+.lg-sum > div{padding:14px 16px;border-right:1px solid var(--p-rule);display:grid;gap:4px}
+.lg-sum > div:last-child{border-right:0}
+.lg-sum .v{font:600 calc(clamp(24px,4cqi,42px) * var(--ds))/1 var(--f-m)}
+.lg-sum .v small{font-size:.4em;margin-left:3px}
+.lg-note{display:grid;grid-template-columns:5em minmax(0,1fr);gap:12px;border-top:1px solid var(--p-ink);padding-top:14px}
+.lg-sign{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;border:var(--rw) solid var(--p-ink);padding:clamp(16px,3cqi,28px)}
+.lg-stamp{width:76px;height:76px;border:2px solid var(--p-acc);color:var(--p-acc-t);display:grid;place-items:center;font:700 .8em var(--f-m);rotate:-8deg;text-align:center;line-height:1.2}
+@container site (max-width:620px){
+  .lg-head,.lg-sign{grid-template-columns:minmax(0,1fr)}
+  .lg-title{border-right:0;border-bottom:1px solid var(--p-ink)}
+  .lg-t .c-d{display:none}
+  .lg-sum{grid-template-columns:minmax(0,1fr)}
+  .lg-sum > div{border-right:0;border-bottom:1px solid var(--p-rule)}
+  .lg-note{grid-template-columns:minmax(0,1fr)}
+}
+
+/* 4 標本陳列 */
+.sp-hero{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:var(--col-gap);align-items:center}
+.sp-txt{display:grid;gap:18px;align-content:start}
+.sp-board{position:relative;aspect-ratio:4/3;max-width:100%;border:1px solid var(--p-rule);background:var(--p-surf)}
+.sp-art{position:absolute;left:28%;right:28%;top:12%;bottom:12%}
+.sp-art svg{width:100%;height:100%;display:block;overflow:visible}
+.sp-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.sp-lines line{stroke:var(--p-ink);stroke-width:1;vector-effect:non-scaling-stroke}
+.sp-lines circle{fill:var(--p-ink)}
+.sp-pt{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--p-ink);color:var(--p-bg);font:600 10px/20px var(--f-m);text-align:center;display:none}
+.sp-labels li{position:absolute;width:26%;font-size:.8em;line-height:1.35;transform:translateY(-50%)}
+.sp-labels li.L{left:2%;text-align:right;padding-right:6px}
+.sp-labels li.R{right:2%;padding-left:6px}
+.sp-labels .n{font:600 .9em var(--f-m);color:var(--p-acc-t)}
+.sp-labels .meta{display:block}
+.sp-board figcaption{position:absolute;left:10px;bottom:8px}
+.tags{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}
+.tags li{position:relative}
+.tags .row{height:100%;border:1px solid var(--p-ink);padding:18px 16px 16px 30px;display:grid;gap:6px;align-content:start;border-radius:var(--rad)}
+.tags .row::before{content:"";position:absolute;left:11px;top:20px;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--p-ink);background:var(--p-bg)}
+.tags .feat{grid-column:span 2}
+.tags .feat .h3{font-size:1.4em}
+.tags .d{color:var(--p-muted);font-size:.92em}
+.g-specimen .r-proof{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--col-gap);align-items:start}
+.sp-stats{display:grid;gap:0;border-top:1px solid var(--p-ink)}
+.sp-stats > div{display:grid;grid-template-columns:minmax(0,1fr) auto;padding-block:10px;border-bottom:1px solid var(--p-rule);align-items:baseline}
+.sp-stats .v{font:600 1.4em var(--f-m)}
+@container site (max-width:700px){
+  .sp-hero,.g-specimen .r-proof{grid-template-columns:minmax(0,1fr)}
+  .sp-art{left:12%;right:12%}
+  .sp-lines,.sp-labels{display:none}
+  .sp-pt{display:block}
+  .sp-legend{display:grid!important}
+  .tags{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@container site (max-width:440px){ .tags{grid-template-columns:minmax(0,1fr)} .tags .feat{grid-column:auto} }
+.sp-legend{display:none;gap:4px;margin-top:10px;font-size:.88em}
+.sp-legend .n{font:600 .9em var(--f-m);margin-right:8px;color:var(--p-acc-t)}
+
+/* 5 對角舞台 */
+.g-diagonal .r-hero{padding-block:calc(var(--sp) * 1.2) calc(var(--sp) * 1.7)}
+.dg-band{position:absolute;inset:0;z-index:-1;background:var(--p-acc);clip-path:polygon(0 0,100% 0,100% 62%,0 100%)}
+.g-diagonal .r-hero .dg-hero{display:grid;gap:18px;max-width:62%;color:var(--p-on-acc)}
+.g-diagonal .r-hero .dg-hero .kick,.g-diagonal .r-hero .dg-hero .em{color:var(--p-on-acc)}
+.g-diagonal .r-hero .dg-hero .em{text-decoration:underline;text-decoration-thickness:.08em;text-underline-offset:.12em}
+.g-diagonal .r-hero .h1{font-size:calc(clamp(34px,8cqi,100px) * var(--ds))}
+.g-diagonal .r-hero .btn{background:var(--p-on-acc);color:var(--p-acc);border-color:var(--p-on-acc)}
+.g-diagonal .r-hero .btn.ghost{background:transparent;color:var(--p-on-acc)}
+.g-diagonal .r-hero .art{position:absolute;right:var(--px);bottom:6%;width:min(34%,320px)}
+.stair{display:grid;gap:4px;margin-top:20px}
+.stair li{margin-left:calc(var(--i) * 8%);max-width:calc(100% - var(--i) * 8%)}
+.stair .row{display:grid;grid-template-columns:3em minmax(0,1fr) minmax(0,1.3fr);gap:6px 18px;align-items:baseline;padding:14px 10px;border-left:3px solid var(--p-acc);background:linear-gradient(90deg,color-mix(in srgb,var(--p-acc) 7%,transparent),transparent 70%)}
+.stair .idx{font:600 .9em var(--f-m);color:var(--p-acc-t)}
+.stair .d{color:var(--p-muted);font-size:.92em}
+.stair .feat .h3{font-size:1.3em}
+.dg-skew{background:var(--p-ink);color:var(--p-bg);transform:skewY(-3deg);margin-block:20px;padding:clamp(28px,5cqi,52px) var(--px)}
+.dg-skew > div{transform:skewY(3deg);display:grid;gap:24px}
+.dg-skew .meta{color:color-mix(in srgb,var(--p-bg) 70%,var(--p-ink))}
+.g-diagonal .r-proof{padding-inline:0}
+.dg-stats{display:flex;flex-wrap:wrap;gap:16px 48px}
+.dg-stats .v{font:800 calc(clamp(30px,5.6cqi,64px) * var(--ds))/1 var(--f-d)}
+.r[data-x="0"] .dg-stats .v{font-family:var(--f-b)}
+.dg-stats .v small{font-size:.4em;margin-left:4px}
+.g-diagonal .r-cta{display:grid;gap:20px;justify-items:end;text-align:right}
+.g-diagonal .r-cta .h2{font-size:calc(clamp(26px,5.4cqi,62px) * var(--ds));max-width:13em}
+.g-diagonal .r-cta .tilt{transform-origin:100% 50%}
+@container site (max-width:620px){
+  .g-diagonal .r-hero .dg-hero{max-width:100%}
+  .dg-band{clip-path:polygon(0 0,100% 0,100% 84%,0 100%)}
+  .g-diagonal .r-hero .art{position:static;width:46%;margin:20px 0 0 auto}
+  .stair li{margin-left:calc(var(--i) * 3%);max-width:calc(100% - var(--i) * 3%)}
+  .stair .row{grid-template-columns:2.4em minmax(0,1fr)}
+  .stair .d{grid-column:2}
+}
+
+/* 6 軌道 */
+.ob-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--col-gap);align-items:center}
+.ob-txt{display:grid;gap:18px}
+.ob-sys{position:relative;aspect-ratio:1;max-width:100%;width:min(100%,520px);justify-self:center}
+.ob-ring{position:absolute;border:1px solid var(--p-rule);border-radius:50%}
+.ob-ring.r1{inset:9%}
+.ob-ring.r2{inset:28%;border-style:dashed}
+.ob-core{position:absolute;inset:36%;border-radius:50%;background:var(--p-ink);color:var(--p-bg);display:grid;place-content:center;justify-items:center;text-align:center;gap:4px}
+.ob-core .mk{font-size:1.3em;border-color:var(--p-bg)}
+.ob-core .meta{color:inherit;opacity:.8;font-size:.64em}
+.ob-node{position:absolute;transform:translate(-50%,-50%);display:grid;justify-items:center;gap:2px;text-align:center;width:max-content;max-width:30%}
+.ob-node .dot{width:12px;height:12px;border-radius:50%;background:var(--p-bg);border:2px solid var(--p-ink)}
+.ob-node.feat .dot{background:var(--p-acc);border-color:var(--p-acc);width:16px;height:16px}
+.ob-node .nm{font-size:.78em;font-weight:700;line-height:1.25;background:var(--p-bg);padding:1px 4px}
+.ob-node .meta{font-size:.62em}
+.ob-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:0 var(--col-gap);margin-top:18px;border-top:1px solid var(--p-ink)}
+.ob-list .row{display:grid;grid-template-columns:3.4em minmax(0,1fr);gap:4px 12px;padding:14px 4px;border-bottom:1px solid var(--p-rule);height:100%}
+.ob-list .deg{font:600 .8em var(--f-m);color:var(--p-acc-t);grid-row:span 2}
+.ob-list .d{color:var(--p-muted);font-size:.92em}
+.g-orbit .r-proof{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--col-gap);align-items:center}
+.ob-gauge{display:flex;gap:14px;flex-wrap:wrap}
+.ob-gauge > div{width:clamp(96px,15cqi,136px);aspect-ratio:1;border-radius:50%;border:1px solid var(--p-ink);display:grid;place-content:center;text-align:center;padding:8px}
+.ob-gauge .v{font:600 1.5em/1 var(--f-m)}
+.g-orbit .r-cta{display:grid;justify-items:start;gap:18px}
+@container site (max-width:640px){
+  .ob-hero,.g-orbit .r-proof{grid-template-columns:minmax(0,1fr)}
+  .ob-node .nm,.ob-node .meta{display:none}
+  .ob-node::after{content:attr(data-n);font:600 10px var(--f-m)}
+  .ob-core .meta{display:none}
+}
+
+/* 7 橫向長卷 */
+.g-strip .r-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:var(--col-gap);align-items:end}
+.g-strip .r-hero .h1{font-size:calc(clamp(32px,7cqi,88px) * var(--ds))}
+.st-hint{font:500 .78em var(--f-m);color:var(--p-muted);display:flex;align-items:center;gap:10px}
+.st-hint::after{content:"";flex:0 0 48px;height:1px;background:currentColor}
+.st-wrap{overflow-x:auto;scroll-snap-type:x mandatory;margin-inline:calc(var(--px) * -1);padding-inline:var(--px);scroll-padding-inline:var(--px);margin-top:18px;padding-bottom:12px}
+.st-track{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,30%);gap:0;position:relative;width:max-content;min-width:100%}
+.st-track::before{content:"";position:absolute;left:0;right:0;top:34px;height:var(--rw);background:var(--p-ink)}
+.st-cell{scroll-snap-align:start;padding:0 22px 0 0;width:clamp(220px,30cqi,320px)}
+.st-cell .row{display:grid;gap:8px;padding:0 4px 8px}
+.st-tick{font:600 .8em var(--f-m);display:flex;align-items:center;gap:8px;height:68px}
+.st-tick::before{content:"";width:13px;height:13px;border-radius:50%;background:var(--p-bg);border:2px solid var(--p-ink);flex:none}
+.st-cell.feat .st-tick::before{background:var(--p-acc);border-color:var(--p-acc)}
+.st-cell .d{color:var(--p-muted);font-size:.92em}
+.st-cell .big{font:600 1.5em var(--f-m)}
+.g-strip .r-proof{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--col-gap);align-items:start}
+.st-stats{display:flex;flex-wrap:wrap;gap:20px 40px}
+.st-stats .v{font:600 calc(clamp(28px,5cqi,56px) * var(--ds))/1 var(--f-m)}
+.st-stats .v small{font-size:.38em;margin-left:3px}
+.g-strip .r-list .st-cell{width:clamp(200px,24cqi,260px)}
+.g-strip .r-list .st-cell time{font:600 .8em var(--f-m)}
+.g-strip .r-cta{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:center}
+@container site (max-width:620px){
+  .g-strip .r-hero,.g-strip .r-proof{grid-template-columns:minmax(0,1fr)}
+  .st-wrap{overflow:visible;margin-inline:0;padding-inline:0}
+  .st-track{grid-auto-flow:row;grid-auto-columns:auto;width:auto;min-width:0}
+  .st-track::before{left:6px;right:auto;top:0;bottom:0;width:var(--rw);height:auto}
+  .st-cell,.g-strip .r-list .st-cell{width:auto;padding:0 0 16px 0}
+  .st-tick{height:auto;padding-block:4px}
+  .st-cell .row{padding-left:26px}
+  .st-hint{display:none}
+}
+
+/* 8 空間畫布 */
+.cv-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:var(--col-gap);align-items:end;margin-bottom:22px}
+.cv-txt{display:grid;gap:16px}
+.cv-field{position:relative;aspect-ratio:16/9;max-width:100%;border:var(--rw) solid var(--p-ink);background:
+  linear-gradient(var(--p-rule) 1px,transparent 1px) 0 0/calc(100% / 6) calc(100% / 4),
+  linear-gradient(90deg,var(--p-rule) 1px,transparent 1px) 0 0/calc(100% / 6) calc(100% / 4),var(--p-surf)}
+.cv-field svg{position:absolute;inset:0;width:100%;height:100%}
+.cv-field path{fill:none;stroke:var(--p-ink);stroke-width:1.5;stroke-dasharray:5 5;vector-effect:non-scaling-stroke}
+.cv-ax{position:absolute;font:500 10px var(--f-m);color:var(--p-muted)}
+.cv-node{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.cv-node .dot{width:14px;height:14px;border-radius:50%;background:var(--p-bg);border:2px solid var(--p-ink);flex:none;display:grid;place-items:center;font:600 8px var(--f-m)}
+.cv-node.feat .dot{width:20px;height:20px;background:var(--p-acc);border-color:var(--p-acc)}
+.cv-node .nm{font-size:.8em;font-weight:700;background:var(--p-bg);padding:1px 5px;border:1px solid var(--p-rule)}
+.cv-node.flip{flex-direction:row-reverse}
+.cv-legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,16em),1fr));gap:0 var(--col-gap);border-top:1px solid var(--p-ink);margin-top:16px}
+.cv-legend .row{display:grid;grid-template-columns:2.6em minmax(0,1fr) auto;gap:4px 10px;padding:12px 4px;border-bottom:1px solid var(--p-rule);align-items:baseline;height:100%}
+.cv-legend .co{font:600 .8em var(--f-m);color:var(--p-acc-t)}
+.cv-legend .d{grid-column:2/-1;color:var(--p-muted);font-size:.9em}
+.g-canvas .r-proof{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--col-gap)}
+.cv-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5em,1fr));gap:0;border:1px solid var(--p-ink)}
+.cv-stats > div{padding:12px;border-right:1px solid var(--p-rule)}
+.cv-stats > div:last-child{border-right:0}
+.cv-stats .v{font:600 1.5em var(--f-m)}
+.g-canvas .r-cta{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between;align-items:center}
+@container site (max-width:620px){
+  .cv-top,.g-canvas .r-proof{grid-template-columns:minmax(0,1fr)}
+  .cv-node .nm{display:none}
+  .cv-field{aspect-ratio:4/3}
+}
+
+/* 9 卷宗疊紙 */
+.stk-tabs{display:flex;gap:4px;overflow-x:auto;padding-inline:4px;scrollbar-width:thin;position:relative;z-index:2}
+.stk-tab{appearance:none;border:1px solid var(--p-ink);border-bottom:0;background:var(--p-surf);color:var(--p-ink);font:600 .8em var(--f-b);padding:8px 14px;border-radius:var(--rad) var(--rad) 0 0;cursor:pointer;white-space:nowrap;min-height:38px}
+.stk-tab[aria-selected="true"]{background:var(--p-bg);position:relative;top:1px}
+.stk{display:grid;position:relative}
+.sheet{grid-area:1/1;background:var(--p-bg);border:1px solid var(--p-ink);padding:clamp(18px,4cqi,40px);display:grid;gap:16px;align-content:start;min-height:100%;
+  --oc:min(var(--o),3);transform:translate(calc(var(--oc) * 10px),calc(var(--oc) * 9px));z-index:calc(20 - var(--o));transition:transform .45s cubic-bezier(.2,.9,.25,1.15),rotate .45s;box-shadow:0 1px 0 var(--p-rule)}
+.r[data-x="3"] .sheet{rotate:calc(var(--oc) * var(--sa,0deg))}
+.sheet[data-o="0"]{box-shadow:4px 5px 0 color-mix(in srgb,var(--p-ink) 14%,transparent)}
+.sheet:not([data-o="0"]) > *{visibility:hidden}
+.sheet .h1{font-size:calc(clamp(30px,6.6cqi,80px) * var(--ds))}
+.sh-item{grid-template-columns:minmax(0,1fr) auto}
+.sh-item > *{grid-column:1}
+.sh-item .big{grid-column:2;grid-row:1/4;font:600 calc(clamp(36px,8cqi,96px) * var(--ds))/1 var(--f-m);color:var(--p-acc-t);text-align:right}
+.sh-item .big small{display:block;font:500 11px var(--f-m);color:var(--p-muted)}
+.sh-cover{grid-template-columns:minmax(0,1fr) minmax(0,.5fr)}
+.sh-cover > *{grid-column:1}
+.sh-cover .art{grid-column:2;grid-row:1/5;align-self:center}
+.stk-pad{height:calc(var(--n) * 9px + 8px)}
+.g-stack .r-proof,.g-stack .r-list{margin-inline:var(--px);padding-inline:clamp(16px,3cqi,32px);border:1px solid var(--p-ink);box-shadow:6px 6px 0 -1px var(--p-bg),6px 6px 0 0 var(--p-ink);margin-bottom:28px}
+.g-stack .r-proof{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--col-gap);margin-top:8px}
+.stk-clip{display:grid;gap:10px}
+.stk-clip .v{font:600 1.7em/1 var(--f-m)}
+.g-stack .r-cta{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between;align-items:center}
+@container site (max-width:620px){
+  .g-stack .r-proof,.sh-cover{grid-template-columns:minmax(0,1fr)}
+  .sh-cover .art{grid-column:1;grid-row:auto;max-width:200px}
+  .sh-item{grid-template-columns:minmax(0,1fr)}
+  .sh-item .big{grid-column:1;grid-row:auto;text-align:left}
+}
+
+/* ═════════ 材料（母題） ═════════
+   每個材料都只透過 token + 等級 hook 介入：
+   L0 只給色票與 metadata 字體；L1 加標題字體與區段標記；L2 加按鈕、選取底板、主視覺；L3 加材質、角度、裝飾。內文永遠 0°。 */
+
+/* 中性（對照組） */
+.m-plain{--p-bg:#FFFFFF;--p-ink:#111827;--p-muted:#5B6474;--p-rule:#E5E7EB;--p-surf:#F5F6FA;--p-acc:#6355F0;--p-acc2:#3B82F6;--p-acc3:#C4B5FD;--p-acc-t:#4F3FE0;--p-on-acc:#FFFFFF;--p-focus:#4F3FE0;
+  --f-d:"Noto Sans TC",system-ui,sans-serif;--f-b:"Noto Sans TC",system-ui,sans-serif;--f-m:"Noto Sans TC",system-ui,sans-serif;--rad:14px;
+  --tex:radial-gradient(40% 50% at 80% 20%,#A78BFA40,transparent 70%),radial-gradient(40% 50% at 10% 90%,#60A5FA33,transparent 70%)}
+.m-plain .r:is([data-x="2"],[data-x="3"]) .btn{border-radius:999px;background:linear-gradient(120deg,var(--p-acc),var(--p-acc2));border-color:transparent;color:#fff}
+.m-plain .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:transparent;color:var(--p-ink);border-color:var(--p-rule)}
+.m-plain .r[data-x="3"] .h1 .em{background:linear-gradient(120deg,var(--p-acc),var(--p-acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.m-plain .r:is([data-x="2"],[data-x="3"]) .row:hover{background:var(--p-surf)}
+
+/* 白底製圖 */
+.m-draft{--p-bg:#FCFCFA;--p-ink:#0F0F0E;--p-muted:#55554F;--p-rule:#CFCFC8;--p-surf:#F2F2EE;--p-acc:#1C46F0;--p-acc2:#0F0F0E;--p-acc3:#DCE3FD;--p-acc-t:#1A3FD8;--p-on-acc:#FFFFFF;--p-focus:#1C46F0;
+  --f-d:"IBM Plex Sans Condensed","Noto Sans TC",sans-serif;--f-b:"Noto Sans TC",system-ui,sans-serif;--f-m:"IBM Plex Mono","Noto Sans TC",monospace;--fw-d:700;--tt-d:uppercase;--tr-d:0;--rad:0px;--ds:1.04;
+  --tex:linear-gradient(#1C46F012 1px,transparent 1px) 0 0/24px 24px,linear-gradient(90deg,#1C46F012 1px,transparent 1px) 0 0/24px 24px}
+.m-draft .r:not([data-x="0"]) .h2::before{content:"DWG-" counter(sec,decimal-leading-zero);display:block;font:500 11px/1.6 var(--f-m);letter-spacing:.1em;color:var(--p-acc-t);margin-bottom:6px}
+.m-draft .r:not([data-x="0"]) .kick{display:inline-flex;align-items:center;gap:8px}
+.m-draft .r:not([data-x="0"]) .kick::before,.m-draft .r:not([data-x="0"]) .kick::after{content:"";width:28px;height:7px;border-inline:1px solid currentColor;background:linear-gradient(currentColor,currentColor) center/100% 1px no-repeat}
+.m-draft .r:is([data-x="2"],[data-x="3"]) .btn{background:var(--p-ink);color:var(--p-bg)}
+.m-draft .r:is([data-x="2"],[data-x="3"]) .btn::before{content:"";position:absolute;inset:-5px;z-index:-1;pointer-events:none;
+  background:linear-gradient(var(--p-ink),var(--p-ink)) 0 0/8px 1px,linear-gradient(var(--p-ink),var(--p-ink)) 0 0/1px 8px,linear-gradient(var(--p-ink),var(--p-ink)) 100% 100%/8px 1px,linear-gradient(var(--p-ink),var(--p-ink)) 100% 100%/1px 8px;background-repeat:no-repeat}
+.m-draft .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:transparent;color:var(--p-ink)}
+.m-draft .r:is([data-x="2"],[data-x="3"]) .btn:hover{background-image:repeating-linear-gradient(45deg,transparent 0 4px,color-mix(in srgb,var(--p-bg) 30%,transparent) 4px 5px)}
+.m-draft .r:is([data-x="2"],[data-x="3"]) .btn.ghost:hover{background-image:repeating-linear-gradient(45deg,transparent 0 4px,#1C46F022 4px 5px)}
+.m-draft .r:is([data-x="2"],[data-x="3"]) .row:hover,.m-draft .r:is([data-x="2"],[data-x="3"]) .feat > .row,.m-draft .r:is([data-x="2"],[data-x="3"]) .row.feat{background:repeating-linear-gradient(45deg,transparent 0 6px,#1C46F014 6px 7px)}
+.m-draft .mk{border-radius:0}
+.m-draft .r[data-x="3"] .em{text-decoration:underline 1px;text-underline-offset:.16em}
+
+/* 孔版印刷 */
+.m-riso{--p-bg:#FBFAF7;--p-ink:#1B2A5E;--p-muted:#4E5A82;--p-rule:#C9CCDB;--p-surf:#FFF6C2;--p-acc:#FF48B0;--p-acc2:#0078BF;--p-acc3:#FFE800;--p-acc-t:#C2177A;--p-on-acc:#1B2A5E;--p-focus:#0078BF;
+  --f-d:"Archivo Black","Noto Sans TC",sans-serif;--f-b:"Noto Sans TC",system-ui,sans-serif;--f-m:"DM Mono","Noto Sans TC",monospace;--fw-d:900;--rad:2px;
+  --tex:radial-gradient(#FF48B055 1.1px,transparent 1.6px) 0 0/9px 9px;--tex-mask:linear-gradient(115deg,#000 0 30%,transparent 62%)}
+.m-riso .r:not([data-x="0"]) :is(.h1,.h2){text-shadow:.05em .035em 0 #FF48B099}
+.m-riso .r[data-x="3"] .h1{text-shadow:.07em .05em 0 #FF48B0B3,-.03em .03em 0 #FFE800}
+.m-riso .r:not([data-x="0"]) .h2{text-decoration:underline .22em #FFE800;text-underline-offset:-.02em;text-decoration-skip-ink:none}
+.m-riso .r:is([data-x="2"],[data-x="3"]) .btn{background:var(--p-acc2);border-color:var(--p-acc2);color:#fff;box-shadow:4px 4px 0 var(--p-acc);transition:box-shadow .2s,translate .2s}
+.m-riso .r:is([data-x="2"],[data-x="3"]) .btn:hover{box-shadow:0 0 0 var(--p-acc);translate:2px 2px}
+.m-riso .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:var(--p-bg);color:var(--p-ink);border-color:var(--p-ink)}
+.m-riso .r:is([data-x="2"],[data-x="3"]) .row:hover,.m-riso .r:is([data-x="2"],[data-x="3"]) .feat > .row,.m-riso .r:is([data-x="2"],[data-x="3"]) .row.feat{background:linear-gradient(transparent 12%,#FFE800CC 12% 88%,transparent 88%);mix-blend-mode:multiply}
+.m-riso .r-nav .nav a[aria-current]::after{height:6px;background:#FFE800;bottom:4px;z-index:-1}
+
+/* 木刻朱印 */
+.m-wood{--p-bg:#F3EEE3;--p-ink:#1C1915;--p-muted:#635A4F;--p-rule:#CFC4B2;--p-surf:#EAE2D2;--p-acc:#B8321F;--p-acc2:#1C1915;--p-acc3:#E9C9A6;--p-acc-t:#A52C1B;--p-on-acc:#FFF8EE;--p-focus:#B8321F;
+  --f-d:"Noto Serif TC",serif;--f-b:"Noto Serif TC","Noto Sans TC",serif;--f-m:"Noto Sans TC",sans-serif;--fw-d:900;--tr-d:.02em;--rad:2px;
+  --tex:repeating-linear-gradient(97deg,transparent 0 11px,#1C19150C 11px 12px,transparent 12px 23px,#1C191508 23px 24px)}
+.m-wood .meta,.m-wood .kick{letter-spacing:.14em}
+.m-wood .r:not([data-x="0"]) .h2::before{content:counter(sec,cjk-decimal);display:inline-grid;place-items:center;width:1.5em;height:1.5em;margin-right:.45em;background:var(--p-acc);color:var(--p-on-acc);font-size:.62em;vertical-align:.25em;border-radius:2px;box-shadow:inset 0 0 0 2px var(--p-acc),inset 0 0 0 3px var(--p-on-acc)}
+.m-wood .r:not([data-x="0"]) .em{background:linear-gradient(transparent 82%,#B8321F66 82% 94%,transparent 94%);color:var(--p-ink)}
+.m-wood .r:is([data-x="2"],[data-x="3"]) .btn{background:var(--p-acc);border-color:var(--p-acc);color:var(--p-on-acc);box-shadow:inset 0 0 0 2px var(--p-acc),inset 0 0 0 3px #FFF8EE99;letter-spacing:.1em}
+.m-wood .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:transparent;color:var(--p-acc-t);box-shadow:none}
+.m-wood .r:is([data-x="2"],[data-x="3"]) .row{position:relative}
+.m-wood .r:is([data-x="2"],[data-x="3"]) .row:hover::after,.m-wood .r:is([data-x="2"],[data-x="3"]) .feat > .row::after,.m-wood .r:is([data-x="2"],[data-x="3"]) .row.feat::after{content:"印";position:absolute;right:6px;top:8px;width:22px;height:22px;display:grid;place-items:center;font:900 12px var(--f-d);color:var(--p-on-acc);background:var(--p-acc);border-radius:2px;rotate:-6deg}
+.m-wood .mk{background:var(--p-acc);color:var(--p-on-acc);border-color:var(--p-acc);font-family:var(--f-d)}
+
+/* 航海圖 */
+.m-chart{--p-bg:#F3F5F1;--p-ink:#18294A;--p-muted:#4A5874;--p-rule:#C3CBD3;--p-surf:#E9E2C8;--p-acc:#B23A2E;--p-acc2:#18294A;--p-acc3:#D9CC9E;--p-acc-t:#A3352A;--p-on-acc:#FFFFFF;--p-focus:#B23A2E;
+  --f-d:"Cormorant SC","Noto Serif TC",serif;--f-b:"Noto Sans TC",system-ui,sans-serif;--f-m:"IBM Plex Mono","Noto Sans TC",monospace;--fw-d:600;--tr-d:.06em;--rad:0px;--ds:1.12;
+  --tex:repeating-radial-gradient(ellipse at 82% 30%,transparent 0 26px,#18294A16 26px 27px),repeating-radial-gradient(ellipse at 8% 110%,transparent 0 30px,#18294A10 30px 31px)}
+.m-chart .r:not([data-x="0"]) .em{font-family:"Cormorant Garamond",var(--f-b);font-style:italic;text-transform:none}
+.m-chart .r:not([data-x="0"]) .h2::before{content:"§ " counter(sec,upper-roman) " · ";font:500 .5em var(--f-m);letter-spacing:.12em;color:var(--p-acc-t);vertical-align:.3em}
+.m-chart .r:is([data-x="2"],[data-x="3"]) .btn{background:var(--p-ink);color:var(--p-bg);border:3px double var(--p-bg);outline:1px solid var(--p-ink);outline-offset:0}
+.m-chart .r:is([data-x="2"],[data-x="3"]) .btn:focus-visible{outline:2px solid var(--p-focus);outline-offset:3px}
+.m-chart .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:transparent;color:var(--p-ink);border-color:var(--p-ink);outline:0}
+.m-chart .r:is([data-x="2"],[data-x="3"]) .row:hover,.m-chart .r:is([data-x="2"],[data-x="3"]) .feat > .row,.m-chart .r:is([data-x="2"],[data-x="3"]) .row.feat{background:color-mix(in srgb,var(--p-acc3) 45%,transparent);box-shadow:inset 3px 0 0 var(--p-acc)}
+
+/* CRT 終端機 */
+.m-term{--p-bg:#0B110C;--p-ink:#B5F2AE;--p-muted:#7FAE79;--p-rule:#284127;--p-surf:#132013;--p-acc:#F5C451;--p-acc2:#7FE07A;--p-acc3:#284127;--p-acc-t:#F5C451;--p-on-acc:#0B110C;--p-focus:#F5C451;
+  --f-d:"VT323","DotGothic16",monospace;--f-b:"IBM Plex Mono","Noto Sans TC",monospace;--f-m:"VT323","DotGothic16",monospace;--fw-d:400;--rad:0px;--ds:1.3;
+  --tex:repeating-linear-gradient(0deg,#00000066 0 1px,transparent 1px 3px)}
+.m-term{font-size:14px}
+.m-term .meta,.m-term .kick{font-size:1em;letter-spacing:.04em}
+.m-term .r:not([data-x="0"]) .h1::before{content:"> ";color:var(--p-acc)}
+.m-term .r[data-x="3"] .h1::after{content:"";display:inline-block;width:.45em;height:.8em;background:var(--p-ink);margin-left:.12em;vertical-align:-.04em;animation:blink 1s steps(1) infinite}
+.m-term .r:not([data-x="0"]) .h2::before{content:"$ ";color:var(--p-acc)}
+.m-term .r:is([data-x="2"],[data-x="3"]) .btn{background:transparent;color:var(--p-ink);border-color:var(--p-ink)}
+.m-term .r:is([data-x="2"],[data-x="3"]) .btn::before{content:"[";margin-right:.2em}
+.m-term .r:is([data-x="2"],[data-x="3"]) .btn::after{content:"]";margin-left:.2em}
+.m-term .r:is([data-x="2"],[data-x="3"]) .btn:is(:hover,:focus-visible){background:var(--p-ink);color:var(--p-bg)}
+.m-term .r:is([data-x="2"],[data-x="3"]) .row:hover,.m-term .r:is([data-x="2"],[data-x="3"]) .feat > .row,.m-term .r:is([data-x="2"],[data-x="3"]) .row.feat{background:var(--p-ink);color:var(--p-bg)}
+.m-term .r:is([data-x="2"],[data-x="3"]) :is(.row:hover,.feat > .row,.row.feat) :is(.meta,.d,.idx,.kick){color:var(--p-bg)}
+.m-term .r[data-x="3"]{text-shadow:0 0 .5px currentColor}
+@keyframes blink{50%{opacity:0}}
+
+/* 預告信 */
+.m-card{--p-bg:#FFFFFF;--p-ink:#0A0A0A;--p-muted:#4A4A4A;--p-rule:#D4D4D4;--p-surf:#F1F1F1;--p-acc:#E5141B;--p-acc2:#0A0A0A;--p-acc3:#FFD3D4;--p-acc-t:#D0121A;--p-on-acc:#FFFFFF;--p-focus:#E5141B;
+  --f-d:"Anton","Noto Sans TC",sans-serif;--f-b:"Noto Sans TC",system-ui,sans-serif;--f-m:"Oswald","Noto Sans TC",sans-serif;--fw-d:400;--tt-d:uppercase;--tr-d:.01em;--rad:0px;--ds:1.05;
+  --tex:radial-gradient(#E5141B 1.3px,transparent 1.8px) 0 0/10px 10px;--tex-mask:linear-gradient(200deg,#000 0 18%,transparent 46%)}
+.m-card .r:not([data-x="0"]) .h1{font-weight:900}
+.m-card .r:not([data-x="0"]) .em{background:linear-gradient(transparent 8%,var(--p-acc) 8% 94%,transparent 94%);color:#fff;padding:0 .12em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.m-card .em-rz .rz{display:inline-block;padding:0 .06em;margin:0 .02em;rotate:var(--a);line-height:1.05}
+.m-card .rz0{background:#0A0A0A;color:#fff;font-family:"Anton","Noto Sans TC",sans-serif}
+.m-card .rz1{background:#fff;color:#0A0A0A;outline:2px solid #0A0A0A;font-family:"Noto Serif TC",serif;font-weight:900}
+.m-card .rz2{background:var(--p-acc);color:#fff;font-family:"Archivo Black","Noto Sans TC",sans-serif}
+.m-card .rz3{background:#fff;color:var(--p-acc);font-family:"Noto Sans TC",sans-serif;font-weight:900;outline:2px solid var(--p-acc)}
+.m-card .r:not([data-x="0"]) .em-rz{background:none;padding:0}
+.m-card .r:not([data-x="0"]) .h2{display:inline-block;background:var(--p-ink);color:#fff;padding:.05em .3em;box-shadow:.18em .14em 0 var(--p-acc)}
+.m-card .r:is([data-x="2"],[data-x="3"]) .btn{background:var(--p-ink);color:#fff;border:0;clip-path:polygon(0 8%,96% 0,100% 88%,4% 100%);padding-inline:1.4em}
+.m-card .r:is([data-x="2"],[data-x="3"]) .btn:hover{background:var(--p-acc)}
+.m-card .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:#fff;color:var(--p-ink);box-shadow:inset 0 0 0 3px var(--p-ink)}
+.m-card .r:is([data-x="2"],[data-x="3"]) .btn.ghost:hover{background:var(--p-acc);color:#fff;box-shadow:none}
+.m-card .r:is([data-x="2"],[data-x="3"]) .row:hover,.m-card .r:is([data-x="2"],[data-x="3"]) .feat > .row,.m-card .r:is([data-x="2"],[data-x="3"]) .row.feat{background:var(--p-ink);color:#fff;clip-path:polygon(0 4%,100% 0,99% 100%,1% 94%)}
+.m-card .r:is([data-x="2"],[data-x="3"]) :is(.row:hover,.feat > .row,.row.feat) :is(.meta,.d,.idx,.kick,.em){color:#fff}
+.m-card .mk{background:var(--p-acc);color:#fff;border-color:var(--p-acc)}
+
+/* 門牌（從租屋查證產品的世界萃取：台灣藍底白字門牌＋出租紅紙） */
+.m-plate{--p-bg:#F5F6F3;--p-ink:#15223D;--p-muted:#4F5B70;--p-rule:#CBD0D8;--p-surf:#E9EDF3;--p-acc:#1D4FA3;--p-acc2:#D2392A;--p-acc3:#F4D35E;--p-acc-t:#1D4FA3;--p-on-acc:#FFFFFF;--p-focus:#D2392A;
+  --f-d:"Noto Sans TC",system-ui,sans-serif;--f-b:"Noto Sans TC",system-ui,sans-serif;--f-m:"IBM Plex Mono","Noto Sans TC",monospace;--fw-d:900;--tr-d:.04em;--rad:6px;
+  --tex:linear-gradient(#15223D0F 2px,transparent 2px) 0 0/112px 88px,linear-gradient(90deg,#15223D0F 2px,transparent 2px) 0 0/112px 88px,linear-gradient(#15223D08 1px,transparent 1px) 0 44px/112px 88px}
+.m-plate .r:not([data-x="0"]) .h2{display:inline-block;background:var(--p-acc);color:#fff;padding:.12em .5em .16em;border-radius:6px;box-shadow:inset 0 0 0 3px var(--p-acc),inset 0 0 0 4.5px #fff}
+.m-plate .r:not([data-x="0"]) .kick{display:inline-block;background:var(--p-acc);color:#fff;padding:3px 10px;border-radius:4px;box-shadow:inset 0 0 0 2px var(--p-acc),inset 0 0 0 3px #fff}
+.m-plate .r:is([data-x="2"],[data-x="3"]) .btn{background:var(--p-acc);border-color:var(--p-acc);color:#fff;border-radius:6px;box-shadow:inset 0 0 0 3px var(--p-acc),inset 0 0 0 4px #fff}
+.m-plate .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:#fff;color:var(--p-acc);box-shadow:none}
+.m-plate .r:is([data-x="2"],[data-x="3"]) .row{position:relative}
+.m-plate .r:is([data-x="2"],[data-x="3"]) .row:hover,.m-plate .r:is([data-x="2"],[data-x="3"]) .feat > .row,.m-plate .r:is([data-x="2"],[data-x="3"]) .row.feat{background:#fff;box-shadow:inset 0 -3px 0 var(--p-acc2)}
+.m-plate .r:is([data-x="2"],[data-x="3"]) .row:hover::after,.m-plate .r:is([data-x="2"],[data-x="3"]) .feat > .row::after,.m-plate .r:is([data-x="2"],[data-x="3"]) .row.feat::after{content:"";position:absolute;right:10px;bottom:-3px;width:44px;height:16px;background:repeating-linear-gradient(90deg,var(--p-acc2) 0 6px,transparent 6px 8px);clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}
+.m-plate .mk{background:var(--p-acc);color:#fff;border-color:var(--p-acc);border-radius:4px}
+.m-plate .r[data-x="3"] .em{background:linear-gradient(transparent 10%,var(--p-acc2) 10% 94%,transparent 94%);color:#fff;padding:0 .14em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+
+/* 評級卡盒（從卡牌收藏產品的世界萃取：壓克力評級盒、標籤、閃卡） */
+.m-slab{--p-bg:#EDEFF3;--p-ink:#121B2F;--p-muted:#4A5468;--p-rule:#C5CBD6;--p-surf:#F9FAFC;--p-acc:#1B368F;--p-acc2:#B4892B;--p-acc3:#DCE3F6;--p-acc-t:#1B368F;--p-on-acc:#FFFFFF;--p-focus:#1B368F;
+  --f-d:"IBM Plex Sans Condensed","Noto Sans TC",sans-serif;--f-b:"Noto Sans TC",system-ui,sans-serif;--f-m:"IBM Plex Mono","Noto Sans TC",monospace;--fw-d:700;--tr-d:.01em;--rad:8px;
+  --tex:linear-gradient(90deg,#121B2F09 1px,transparent 1px) 0 0/calc(63px * .9) calc(88px * .9),linear-gradient(#121B2F09 1px,transparent 1px) 0 0/calc(63px * .9) calc(88px * .9)}
+.m-slab .r:not([data-x="0"]) .h2{display:inline-flex;align-items:baseline;gap:.5em;border:1px solid var(--p-ink);border-left:6px solid var(--p-acc);padding:.1em .5em;background:var(--p-surf)}
+.m-slab .r:not([data-x="0"]) .h2::after{content:counter(sec,decimal-leading-zero);font:500 .45em var(--f-m);color:var(--p-acc2);letter-spacing:.1em}
+.m-slab .r:is([data-x="2"],[data-x="3"]) .btn{background:var(--p-acc);border-color:var(--p-acc);color:#fff;box-shadow:0 0 0 3px #ffffffcc,0 0 0 4px var(--p-rule),0 3px 8px #121B2F22}
+.m-slab .r:is([data-x="2"],[data-x="3"]) .btn.ghost{background:var(--p-surf);color:var(--p-ink)}
+.m-slab .r:is([data-x="2"],[data-x="3"]) .row{position:relative;overflow:hidden}
+.m-slab .r:is([data-x="2"],[data-x="3"]) .row:hover,.m-slab .r:is([data-x="2"],[data-x="3"]) .feat > .row,.m-slab .r:is([data-x="2"],[data-x="3"]) .row.feat{background:linear-gradient(115deg,#ffffff00 30%,#C9D6FF66 42%,#FFE7B366 50%,#D5F5E866 58%,#ffffff00 70%) var(--p-surf);background-size:250% 100%;background-position:var(--shine,100%) 0;box-shadow:inset 0 0 0 1px var(--p-rule)}
+.m-slab .r:is([data-x="2"],[data-x="3"]) .row:hover{animation:shine 1.1s ease-out both}
+@keyframes shine{from{background-position:100% 0}to{background-position:0 0}}
+.m-slab .mk{border-radius:3px;background:var(--p-ink);color:#fff;border-color:var(--p-ink)}
+
+/* 裝飾件（ornament，只在 L3 出現） */
+.orn{position:absolute;pointer-events:none;z-index:1}
+.r-hero .orn{top:clamp(10px,2cqi,22px);right:var(--px)}
+.g-swiss .r-hero .orn,.g-diagonal .r-hero .orn{top:auto;bottom:clamp(10px,2cqi,22px)}
+.g-stack .r-hero .orn{top:auto;bottom:0}
+.o-title{border:1px solid var(--p-ink);font:500 10px/1.35 var(--f-m);display:grid;grid-template-columns:auto auto;background:var(--p-bg)}
+.o-title span{padding:3px 8px;border-right:1px solid var(--p-ink);border-bottom:1px solid var(--p-ink)}
+.o-title span:nth-child(2n){border-right:0}
+.o-title span:nth-last-child(-n+2){border-bottom:0}
+.o-reg{display:flex;gap:10px;align-items:center}
+.o-reg i{width:16px;height:16px;mix-blend-mode:multiply}
+.o-reg .x{width:22px;height:22px;background:linear-gradient(var(--p-ink),var(--p-ink)) center/100% 1px no-repeat,linear-gradient(var(--p-ink),var(--p-ink)) center/1px 100% no-repeat;border-radius:50%;box-shadow:inset 0 0 0 1px var(--p-ink)}
+.o-colo{writing-mode:vertical-rl;font:600 12px/1.6 var(--f-d);letter-spacing:.3em;display:flex;align-items:center;gap:10px;color:var(--p-ink)}
+.o-colo b{writing-mode:horizontal-tb;width:34px;height:34px;display:grid;place-items:center;background:var(--p-acc);color:var(--p-on-acc);font:900 15px var(--f-d);border-radius:2px;box-shadow:inset 0 0 0 2px var(--p-acc),inset 0 0 0 3px var(--p-on-acc)}
+.o-cart{border:3px double var(--p-ink);padding:6px 12px;text-align:center;font:500 10px/1.5 var(--f-m);background:var(--p-bg)}
+.o-cart b{display:block;font:600 14px/1.3 "Cormorant SC",serif;letter-spacing:.12em}
+.o-stat{font:400 15px/1.2 var(--f-m);color:var(--p-acc);border:1px solid var(--p-rule);padding:2px 8px;background:var(--p-bg)}
+.o-burst{width:118px;height:118px;display:grid;place-items:center;background:var(--p-ink);color:#fff;font:400 16px/1.05 "Anton",sans-serif;text-align:center;rotate:9deg;clip-path:polygon(50% 0,61% 14%,79% 6%,80% 24%,98% 27%,88% 43%,100% 57%,84% 64%,88% 83%,70% 81%,60% 98%,49% 85%,35% 99%,29% 81%,10% 86%,15% 66%,0 55%,13% 43%,3% 26%,21% 23%,22% 5%,39% 13%)}
+.o-plate{background:var(--p-acc);color:#fff;border-radius:6px;padding:6px 14px 8px;box-shadow:inset 0 0 0 3px var(--p-acc),inset 0 0 0 4.5px #fff,0 2px 6px #15223D33;text-align:center;font:900 12px/1.35 var(--f-b);letter-spacing:.08em}
+.o-plate b{display:block;font-size:20px;letter-spacing:.04em}
+.o-plate small{display:block;font:500 9px var(--f-m);opacity:.85;letter-spacing:.1em}
+.o-cert{background:var(--p-surf);border:1px solid var(--p-ink);border-top:5px solid var(--p-acc);display:grid;grid-template-columns:auto auto;gap:0 14px;align-items:center;padding:6px 10px;font:500 10px/1.4 var(--f-m)}
+.o-cert span{grid-column:2}
+.o-cert b{grid-row:1/3;grid-column:1;font:700 26px/1 var(--f-d);color:var(--p-acc2)}
+@container site (max-width:560px){ .r-hero .orn{display:none!important} }
+
+/* 主視覺圖（SVG，顏色全部吃 token） */
+.s-ink{fill:none;stroke:var(--p-ink);stroke-width:1.4}
+.s-thin{fill:none;stroke:var(--p-ink);stroke-width:.8}
+.s-acc{fill:none;stroke:var(--p-acc);stroke-width:1.4}
+.s-cl{fill:none;stroke:var(--p-acc);stroke-width:.9;stroke-dasharray:14 3 2 3}
+.f-ink{fill:var(--p-ink)} .f-acc{fill:var(--p-acc)} .f-acc2{fill:var(--p-acc2)} .f-acc3{fill:var(--p-acc3)} .f-bg{fill:var(--p-bg)} .f-surf{fill:var(--p-surf)} .f-mut{fill:var(--p-muted)}
+.t-m{font:500 11px var(--f-m);fill:var(--p-ink)}
+.t-d{font:900 64px var(--f-d);fill:var(--p-on-acc)}
+.mb{mix-blend-mode:multiply}
+.st-a{stop-color:var(--p-acc)} .st-b{stop-color:var(--p-acc2)}
+
+@media (prefers-reduced-motion: reduce){
+  .page *,.page *::before,.page *::after{animation:none!important;transition:none!important}
+}
+.rm .page *,.rm .page *::before,.rm .page *::after{animation:none!important;transition:none!important}
+</style>
+
+<div class="lab" id="lab">
+  <header class="lab-head">
+    <h1>版面組合實驗室</h1>
+    <p>同一份內容，換「版面語法」換骨架、換「材料」換質地、用「表現力預算」決定哪個區域可以放開。三個軸彼此獨立，再加上種子在規則內做變化，就能長出很多種不死板、但仍然是同一家人的頁面。右側會即時算出相容性與 cliché 分數，並輸出成 StyleGenome 契約。</p>
+  </header>
+
+  <div class="genes" role="group" aria-label="基因控制">
+    <div class="gene-row">
+      <div class="ctl"><span class="ctl-label" id="lbl-content">內容</span><div class="seg" role="group" aria-labelledby="lbl-content" id="ctl-content"></div></div>
+      <div class="ctl"><span class="ctl-label" id="lbl-budget">表現力預算</span><div class="seg" role="group" aria-labelledby="lbl-budget" id="ctl-budget"></div></div>
+      <div class="ctl"><span class="ctl-label" id="lbl-dens">密度</span><div class="seg" role="group" aria-labelledby="lbl-dens" id="ctl-dens"></div></div>
+      <div class="ctl"><span class="ctl-label" id="lbl-dev">裝置</span><div class="seg" role="group" aria-labelledby="lbl-dev" id="ctl-dev"></div></div>
+    </div>
+    <div class="ctl"><span class="ctl-label" id="lbl-grammar">版面語法<b id="cur-grammar"></b></span><div class="picker" role="group" aria-labelledby="lbl-grammar" id="ctl-grammar"></div></div>
+    <div class="ctl"><span class="ctl-label" id="lbl-motif">材料<b id="cur-motif"></b></span><div class="picker" role="group" aria-labelledby="lbl-motif" id="ctl-motif"></div></div>
+    <div class="act-row">
+      <span class="seed" id="seed-v" aria-live="polite">種子 #0427</span>
+      <button type="button" class="btn-act ghost" id="btn-seed">換一顆種子</button>
+      <button type="button" class="btn-act" id="btn-dice">隨機組合</button>
+      <label class="chk"><input type="checkbox" id="opt-contra"> 允許受控矛盾（相容性為負也抽）</label>
+      <label class="chk"><input type="checkbox" id="opt-rm"> 減少動態</label>
+    </div>
+  </div>
+
+  <div class="workbench">
+    <div class="stage" id="stage" data-device="desk">
+      <div class="chrome" aria-hidden="true"><span class="url" id="url"></span><span class="w" id="vw"></span></div>
+      <div class="viewport" id="viewport" tabindex="-1">
+        <div class="site" id="site"><div class="page" id="page"></div></div>
+        <div class="veil" id="veil" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <aside class="spec" aria-label="組合契約">
+      <section>
+        <h2>這一組</h2>
+        <p class="spec-name" id="sp-name"></p>
+        <p class="spec-thesis" id="sp-thesis"></p>
+      </section>
+      <section aria-labelledby="sp-score-h">
+        <h2 id="sp-score-h">評分</h2>
+        <div class="score"><span class="score-n" id="sp-score">0</span><div class="meter"><i id="sp-meter"></i></div><span class="score-v" id="sp-verdict"></span></div>
+        <dl id="sp-break"></dl>
+      </section>
+      <section aria-labelledby="sp-bud-h">
+        <h2 id="sp-bud-h">表現力預算（點格子調整）</h2>
+        <div class="budget" id="sp-budget"></div>
+        <p class="bud-note">L0 點綴 · L1 框架 · L2 外殼 · L3 舞台。L4（表演）是轉場，換組合時就會播放。</p>
+      </section>
+      <section aria-labelledby="sp-mat-h">
+        <h2 id="sp-mat-h">材料契約</h2>
+        <dl id="sp-mat"></dl>
+      </section>
+      <section aria-labelledby="sp-yaml-h">
+        <h2 id="sp-yaml-h">StyleGenome</h2>
+        <pre class="yaml" id="sp-yaml" tabindex="0"></pre>
+        <button type="button" class="btn-act ghost copy" id="btn-copy">複製 YAML</button>
+      </section>
+    </aside>
+  </div>
+
+  <section class="rules" aria-labelledby="rules-h">
+    <h2 id="rules-h">讓網頁不死板的組合法則</h2>
+    <p>死板的頁面通常不是因為顏色不對，而是每個軸都用了預設值：置中、等寬卡片、同一種圓角、每區一樣大聲。下面這七條是這份實驗室在示範的事，也是要寫回 ui-design skill 的方法。</p>
+    <div class="rule-grid">
+      <article><h3><small>正交基因</small>結構、質地、音量分開選</h3><p>版面語法管骨架，材料管筆觸與色票，預算管哪裡大聲。三軸獨立，10 × 9 × 5 預設就有 450 種起點，再乘密度與種子。換其中一軸就能得到一個真正不同的方向，不只是換色。</p></article>
+      <article><h3><small>內容決定版面</small>先看內容的形狀</h3><p>內容是序列（流程、時間）、目錄（商品、卡牌）、敘事（品牌、文章）還是網絡（地圖、關係）？形狀對了，版面語法就幾乎選好了。評分裡的「內容適配」就是在檢查這件事。</p></article>
+      <article><h3><small>表現力預算</small>一頁要有安靜區</h3><p>L3 最多給兩個區域，其餘留在 L0–L1。全部開到 L3 會觸發新的風格化 cliché：到處旋轉、到處拼貼字、到處掃描線。音量要有起伏，高潮才聽得見。</p></article>
+      <article><h3><small>種子變異</small>同一家人，不同的臉</h3><p>用文章 slug、卡號或地址算出種子，在材料的角度集、主打項、座標、裝飾編號裡挑值。每一篇、每一張都長得不一樣，但規則沒變，所以不會亂。</p></article>
+      <article><h3><small>從產品世界萃取母題</small>材料不一定要從遊戲借</h3><p>「門牌」來自租屋查證產品的地址，「評級卡盒」來自卡牌收藏產品的評級盒，「白底製圖」符合「只准白底黑字」這類嚴格的品牌限制。找出產品自己的實體物件，母題就有了理由，也比較不會撞款。</p></article>
+      <article><h3><small>受控矛盾</small>負分組合只准出現在一層</h3><p>相容性為負的組合（例如 CRT × 軌道）可以當招牌，但只能放在一個區域、要寫下理由，其餘區域回到相容的組合。勾選「允許受控矛盾」可以看看它們長什麼樣子。</p></article>
+      <article><h3><small>響應式是變形</small>手機上保留語法</h3><p>切到手機看看：長卷變成直向時間軸，軌道收成編號圓點，標本的引線變成編號圖例，帳簿把說明欄收掉。每種語法在窄螢幕上都有自己的變形，不會全部塌成置中堆疊。</p></article>
+    </div>
+  </section>
+  <p class="vh" aria-live="polite" id="live"></p>
+</div>
+
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pad2 = n => String(n).padStart(2, '0');
+const hash = s => { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+
+/* ═════════ 內容（三份都取材自實際的 repo；數字是範例） ═════════ */
+const CONTENT = {
+  studio: {
+    name: '工作室官網', ref: '一人軟體工作室', host: 'studio.example', shape: { nar: 2, seq: 1, cat: 1, net: 0 },
+    brand: '灰線工作室', brandEn: 'GREYLINE STUDIO', mark: '灰',
+    nav: ['服務', '案例', '文章', '關於'],
+    kicker: '軟體與研究工作室 · 台北',
+    title: '把重複的流程，交給[會自己跑]的系統',
+    lede: '一人工作室，接 AI 流程自動化、客製系統、數據監測和技術顧問。先寫清楚不做什麼，再決定先做哪一塊。',
+    cta: ['寄信聊聊需求', '看過去的案例'],
+    itemsTitle: '服務項目', numLabel: '篇相關文章',
+    items: [
+      { name: 'AI 與流程自動化', en: 'Automation', meta: '2–6 週', desc: '把客服、報表、文件整理接上語言模型，保留人工審核的關卡。', num: '7' },
+      { name: '客製系統', en: 'Systems', meta: '6–12 週', desc: '內部後台、預約與訂單系統，從規格到部署一次做完。', num: '5' },
+      { name: '數據監測', en: 'Monitoring', meta: '按月', desc: '爬蟲、價格與輿情追蹤，異常時發通知，不用每天盯著看。', num: '4' },
+      { name: '技術顧問與 MVP', en: 'Advisory', meta: '按時數', desc: '架構審查、雲端成本、先做最小可用版本驗證需求。', num: '3' },
+      { name: '研究與實驗', en: 'Labs', meta: '自主', desc: '工具與研究筆記公開在實驗室，客戶可以直接拿去用。', num: '6' }
+    ],
+    statsTitle: '目前的累積',
+    stats: [{ v: '8', u: '個', l: '公開案例' }, { v: '20', u: '篇', l: '技術文章' }, { v: '4', u: '類', l: '服務項目' }],
+    quote: { t: '先問我們不想做什麼，最後砍掉一半功能，反而提早上線。', by: '範例引言 · 客戶回饋' },
+    logTitle: '最新文章',
+    log: [
+      { d: '2026-10-02', t: '用 Next.js 16 重寫官網的七個決定', g: '技術' },
+      { d: '2026-09-18', t: '報價單為什麼要寫「不做什麼」', g: '流程' },
+      { d: '2026-09-03', t: '租屋貼文去重：從 1,000 則裡找出同一間', g: '案例' },
+      { d: '2026-08-21', t: '小團隊的雲端帳單怎麼砍半', g: '技術' },
+      { d: '2026-08-07', t: '第一次外包軟體前要準備的五份文件', g: '指南' }
+    ],
+    ctaTitle: '有一件每週都在重複做的事？寄信給我', foot: '© 2026 灰線工作室', objName: '工作流程'
+  },
+  rent: {
+    name: '租屋查證', ref: '社群租屋貼文查證服務', host: 'rent.example', shape: { cat: 2, net: 2, seq: 1, nar: 0 },
+    brand: '巷口租屋', brandEn: 'RENT CHECK', mark: '巷',
+    nav: ['查地址', '行情', '追蹤', '方案'],
+    kicker: '社群租屋貼文查證',
+    title: '這間房的租金，[合理嗎]？',
+    lede: '每天收集約 1,000 則 Facebook 社團、Threads 和 PTT 的租屋貼文，定位到路段、合併重複轉貼，算出每一區、每一條街的租金中位數。',
+    cta: ['輸入地址查行情', '看各區行情'],
+    itemsTitle: '本週熱門路段', numLabel: '元／月（中位數）',
+    items: [
+      { name: '復興南路一段', en: '大安區', meta: '套房 · 42 則', desc: '捷運忠孝復興站 400 公尺內，P25–P75 落在 1.6 萬到 2.2 萬。', num: '18,500' },
+      { name: '民生東路五段', en: '松山區', meta: '兩房 · 27 則', desc: '同一間被轉貼 6 次，合併後只算一筆。', num: '26,000' },
+      { name: '中和路', en: '永和區', meta: '套房 · 61 則', desc: '近頂溪站，貼文量是全區最多的一條街。', num: '12,800' },
+      { name: '文化路二段', en: '板橋區', meta: '雅房 · 33 則', desc: '雅房比例偏高，中位數被拉低，要分房型看。', num: '8,600' },
+      { name: '公益路', en: '台中西區', meta: '整層 · 19 則', desc: '整層住家為主，樣本少，區間比較寬。', num: '21,000' }
+    ],
+    statsTitle: '資料規模',
+    stats: [{ v: '1,000', u: '則/日', l: '收集貼文' }, { v: '3', u: '個', l: '社群來源' }, { v: '18', u: '縣市', l: '門牌定位資料' }],
+    quote: { t: '房東說這是行情價，查了才知道同一條街便宜四千。', by: '範例引言 · 使用者回饋' },
+    logTitle: '最近查過的地址',
+    log: [
+      { d: '10-14 22:10', t: '大安區 復興南路一段 107 巷', g: '套房' },
+      { d: '10-14 21:42', t: '永和區 中和路 345 號', g: '套房' },
+      { d: '10-14 20:05', t: '松山區 民生東路五段 36 巷', g: '兩房' },
+      { d: '10-14 19:31', t: '板橋區 文化路二段 182 巷', g: '雅房' },
+      { d: '10-14 18:58', t: '台中西區 公益路 68 號', g: '整層' }
+    ],
+    ctaTitle: '看到一則租屋貼文？先查再約看房', foot: '資料來源：公開社群貼文、內政部門牌資料（OGDL）', objName: '路段'
+  },
+  cards: {
+    name: '卡牌收藏', ref: '多遊戲 TCG 收藏管理', host: 'cards.example', shape: { cat: 2, net: 1, seq: 0, nar: 0 },
+    brand: '卡匣', brandEn: 'CARD VAULT', mark: '匣',
+    nav: ['收藏', '卡盒', '牌組', '缺卡'],
+    kicker: '多遊戲 TCG 收藏管理',
+    title: '每一張卡，都知道[自己在哪一盒]',
+    lede: '記錄哪張卡、有幾張、卡況如何、放在哪個卡盒。貼上牌表就能比對缺哪些卡，入手後一鍵移進收藏。',
+    cta: ['新增卡牌', '貼上牌表比對'],
+    itemsTitle: '最近入盒', numLabel: '張',
+    items: [
+      { name: '閃電龍 Lightning Dragon', en: 'MTG · USG', meta: 'NM · Foil · 盒 B-02', desc: '從手上移進翻蓋卡盒 B-02，原本放在未分盒。', num: '2' },
+      { name: '皮卡丘 V', en: 'PTCG · SWSH', meta: 'LP · 盒 A-01', desc: '牌組「電系快攻」還缺 1 張，已加入願望清單。', num: '3' },
+      { name: '初音未來', en: 'WS · PJS', meta: 'NM · 盒 C-07', desc: '依授權規範不顯示卡圖，用文字卡面呈現。', num: '4' },
+      { name: '黑蓮花（代理卡）', en: 'MTG · Proxy', meta: 'MP · 盒 B-02', desc: '代理卡獨立標記，不計入收藏總數。', num: '1' },
+      { name: '超夢 ex', en: 'PTCG · MEW', meta: 'NM · 盒 A-03', desc: '4 張全在同一盒，牌組需要時一次拿走。', num: '4' }
+    ],
+    statsTitle: '收藏概況',
+    stats: [{ v: '3,412', u: '張', l: '收藏總數' }, { v: '18', u: '盒', l: '卡盒' }, { v: '9', u: '副', l: '牌組' }],
+    quote: { t: '以前找一張卡要翻三個盒子，現在搜尋就知道在 B-02。', by: '範例引言 · 收藏玩家' },
+    logTitle: '手上的卡（移動托盤）',
+    log: [
+      { d: '盒 B-02', t: '閃電龍 Lightning Dragon × 2', g: '移入' },
+      { d: '盒 A-01', t: '皮卡丘 V × 1', g: '取出' },
+      { d: '未分盒', t: '雷丘 × 3', g: '待放' },
+      { d: '盒 C-07', t: '初音未來 × 4', g: '移入' },
+      { d: '盒 A-03', t: '超夢 ex × 4', g: '取出' }
+    ],
+    ctaTitle: '手上 14 張，來自 3 個卡盒，要放進哪裡？', foot: '支援 Magic: The Gathering、Pokémon TCG、Weiß Schwarz', objName: '卡盒'
+  }
+};
+
+/* ═════════ 版面語法 ═════════ */
+const SHAPE_ZH = { nar: '敘事', seq: '序列', cat: '目錄', net: '網絡', any: '通用' };
+const GRAMMARS = {
+  template: { name: '樣板', en: 'Template', zh: '對照組：置中 hero、三張卡、藥丸按鈕', shape: 'any', yaml: 'centered-hero-plus-card-grid',
+    thesis: '大家都看過的 SaaS 首頁。換什麼材料都救不了，因為問題在骨架。',
+    sch: '<rect x="8" y="2" width="12" height="2" class="f"/><rect x="5" y="6" width="18" height="2" class="f"/><rect x="2" y="12" width="7" height="7"/><rect x="10.5" y="12" width="7" height="7"/><rect x="19" y="12" width="7" height="7"/>' },
+  swiss: { name: '非對稱網格', en: 'Asymmetric 12-col', shape: 'any', yaml: 'asymmetric-12-column',
+    thesis: '十二欄、左重右輕、懸掛的編號。秩序來自網格，張力來自刻意的空白。',
+    sch: '<rect x="2" y="2" width="16" height="7" class="f"/><rect x="21" y="2" width="5" height="7"/><line x1="2" y1="12" x2="26" y2="12"/><line x1="2" y1="15.5" x2="26" y2="15.5"/><line x1="2" y1="19" x2="26" y2="19"/>' },
+  editorial: { name: '編輯刊物', en: 'Editorial', shape: 'nar', yaml: 'editorial-columns',
+    thesis: '刊頭、首字放大、雙欄與目錄。適合需要被「讀」的品牌和文章。',
+    sch: '<line x1="2" y1="2" x2="26" y2="2"/><line x1="2" y1="4.5" x2="26" y2="4.5"/><rect x="2" y="7" width="15" height="4" class="f"/><line x1="2" y1="14" x2="12" y2="14"/><line x1="2" y1="16.5" x2="12" y2="16.5"/><line x1="2" y1="19" x2="12" y2="19"/><line x1="15" y1="14" x2="26" y2="14"/><line x1="15" y1="16.5" x2="26" y2="16.5"/><line x1="15" y1="19" x2="26" y2="19"/>' },
+  ledger: { name: '帳簿索引', en: 'Ledger', shape: 'cat', yaml: 'ledger-rows',
+    thesis: '每個區塊都是一張表：欄位、合計、雙線、簽核。資料就是裝飾。',
+    sch: '<rect x="2" y="2" width="24" height="17"/><line x1="2" y1="6" x2="26" y2="6"/><line x1="2" y1="10" x2="26" y2="10"/><line x1="2" y1="14" x2="26" y2="14"/><line x1="8" y1="2" x2="8" y2="19"/><line x1="20" y1="2" x2="20" y2="19"/>' },
+  specimen: { name: '標本陳列', en: 'Specimen board', shape: 'cat', yaml: 'specimen-board',
+    thesis: '把產品當成一件標本：中心是物件，引線指出每個部位，下面是吊牌。',
+    sch: '<circle cx="14" cy="10" r="5"/><line x1="2" y1="4" x2="10" y2="7"/><line x1="2" y1="16" x2="10" y2="13"/><line x1="26" y1="5" x2="18" y2="8"/><line x1="26" y1="15" x2="18" y2="12"/>' },
+  diagonal: { name: '對角舞台', en: 'Diagonal stage', shape: 'nar', yaml: 'diagonal-stage',
+    thesis: '斜切的色帶把畫面分成兩半，項目沿著對角線一階一階往下走。',
+    sch: '<polygon points="2,2 26,2 26,8 2,13" class="f"/><line x1="4" y1="15" x2="12" y2="15"/><line x1="9" y1="17.5" x2="17" y2="17.5"/><line x1="14" y1="20" x2="22" y2="20"/>' },
+  orbit: { name: '軌道', en: 'Orbit', shape: 'net', yaml: 'radial-orbit',
+    thesis: '核心在中央，項目繞著它排列。角度就是索引，適合有一個中心的關係。',
+    sch: '<circle cx="14" cy="10.5" r="8"/><circle cx="14" cy="10.5" r="3" class="f"/><circle cx="14" cy="2.5" r="1.5" class="f"/><circle cx="21.5" cy="13" r="1.5" class="f"/><circle cx="7" cy="15" r="1.5" class="f"/>' },
+  strip: { name: '橫向長卷', en: 'Hand scroll', shape: 'seq', yaml: 'horizontal-scroll-strip',
+    thesis: '像手卷一樣往右展開的時間軸。手機上轉成直向，順序不變。',
+    sch: '<line x1="0" y1="8" x2="28" y2="8"/><circle cx="4" cy="8" r="1.5" class="f"/><circle cx="12" cy="8" r="1.5" class="f"/><circle cx="20" cy="8" r="1.5" class="f"/><rect x="2" y="11" width="6" height="7"/><rect x="10" y="11" width="6" height="7"/><rect x="18" y="11" width="6" height="7"/>' },
+  canvas: { name: '空間畫布', en: 'Spatial canvas', shape: 'net', yaml: 'spatial-canvas',
+    thesis: '項目有座標，彼此用路線連起來。版面本身就是一張地圖。',
+    sch: '<rect x="2" y="2" width="24" height="17"/><path d="M6 15 L11 7 L18 12 L23 5" stroke-dasharray="2 1.5"/><circle cx="6" cy="15" r="1.6" class="f"/><circle cx="11" cy="7" r="1.6" class="f"/><circle cx="18" cy="12" r="1.6" class="f"/><circle cx="23" cy="5" r="1.6" class="f"/>' },
+  stack: { name: '卷宗疊紙', en: 'Dossier stack', shape: 'nar', yaml: 'stacked-sheets',
+    thesis: '一疊有頁籤的紙，點頁籤把那一張抽到最上面。內容有前後、有層次。',
+    sch: '<rect x="8" y="7" width="18" height="12"/><rect x="5" y="5" width="18" height="12" class="fb"/><rect x="2" y="3" width="18" height="12"/><rect x="2" y="1" width="6" height="2" class="f"/>' }
+};
+
+/* ═════════ 材料 ═════════ */
+const MOTIFS = {
+  plain: { name: '中性', en: 'Default', material: '沒有選材料：系統字、圓角、紫藍漸層', mark: '—', angles: [0], verb: 'fade', palette: ['#FFFFFF', '#111827', '#6355F0', '#3B82F6'],
+    thesis: '對照組。L3 會出現漸層字和光暈，正好是 cliché 清單上的東西。', core: '全部' },
+  draft: { name: '白底製圖', en: 'Ink drafting', material: '工程圖、尺寸線、圖框標題欄', mark: 'draw（描線）', angles: [0, 0, 90], verb: 'draw', palette: ['#FCFCFA', '#0F0F0E', '#1C46F0'],
+    thesis: '黑線、尺寸標註、圖號。符合「白底黑字、只做進場」這類嚴格品牌限制。', core: '內文、表單、數字' },
+  riso: { name: '孔版印刷', en: 'Risograph', material: '孔版印刷、套色、網點、錯版', mark: 'overprint（套印）', angles: [-3, 2, 0], verb: 'register', palette: ['#FBFAF7', '#1B2A5E', '#FF48B0', '#0078BF', '#FFE800'],
+    thesis: '粉紅、藍、黃三版疊印。錯位是招牌，但只錯在標題與按鈕。', core: '內文、表單' },
+  wood: { name: '木刻朱印', en: 'Woodblock & seal', material: '木刻版畫、朱印、和紙、落款', mark: 'carve-stamp（刻印）', angles: [0, -2], verb: 'stamp', palette: ['#F3EEE3', '#1C1915', '#B8321F'],
+    thesis: '朱印當區段編號與選取記號，木紋只出現在舞台區。', core: '內文、表單、數字' },
+  chart: { name: '航海圖', en: 'Nautical chart', material: '海圖、等深線、羅經花、圖框說明', mark: 'survey（測繪）', angles: [-8, 0, 8], verb: 'plot', palette: ['#F3F5F1', '#18294A', '#B23A2E', '#D9CC9E'],
+    thesis: '雕版小型大寫字、等深線、雙線框。帶著座標感的典雅。', core: '內文、表單' },
+  term: { name: 'CRT 終端機', en: 'CRT terminal', material: '磷光螢幕、提示符、掃描線', mark: 'glyph（字元）', angles: [0], verb: 'boot', palette: ['#0B110C', '#B5F2AE', '#F5C451'],
+    thesis: '提示符、方括號按鈕、反白選取。掃描線只准在舞台區。', core: '內文、表單、數字' },
+  card: { name: '預告信', en: 'Calling card', material: '預告信、勒索信拼貼、龐克海報', mark: 'cut（剪）', angles: [-12, -6, 4, 9], verb: 'slash', palette: ['#FFFFFF', '#0A0A0A', '#E5141B'],
+    thesis: '紅黑白、鋸齒、拼貼字。最吵的材料，最需要預算控制。', core: '內文、表單' },
+  plate: { name: '門牌', en: 'Address plate', material: '台灣藍底白字門牌、出租紅紙、街廓', mark: 'enamel（琺瑯牌）', angles: [0, -2, 3], verb: 'register', palette: ['#F5F6F3', '#15223D', '#1D4FA3', '#D2392A'], from: '租屋查證',
+    thesis: '從租屋查證產品的世界萃取：標題是門牌、選取是撕條紅紙、舞台底下是街廓網格。', core: '內文、表單、價格數字' },
+  slab: { name: '評級卡盒', en: 'Graded slab', material: '壓克力評級盒、標籤、閃卡光澤、卡套格', mark: 'encase（封裝）', angles: [0, -3], verb: 'stamp', palette: ['#EDEFF3', '#121B2F', '#1B368F', '#B4892B'], from: '卡牌收藏',
+    thesis: '從卡牌收藏產品的世界萃取：標題是評級標籤、選取時掃過一道閃卡光澤。', core: '內文、表單、張數' }
+};
+
+/* 版面 × 材料 相容性：[分數, 理由]，沒列的是 0 */
+const COMPAT = {
+  plain: { template: [1, '骨架和材料一樣通用，彼此不打架，也不會被記住'], swiss: [1, '網格救了一半，但字體和圓角還是預設'], ledger: [1, '表格本身有語氣，中性材料不搶'] },
+  draft: { swiss: [2, '製圖本來就是網格與尺寸，兩者互相強化'], specimen: [2, '工程圖的引線標註就是標本板'], canvas: [2, '座標方格是製圖的母語'], ledger: [1, '圖框標題欄和帳簿是近親'], orbit: [1, '圓規作圖可以成立'], strip: [1, '展開圖可以橫向排'], diagonal: [-1, '製圖只用 0° 與 90°，斜切要有理由'], template: [-1, '置中卡片會把尺寸線變成裝飾'] },
+  riso: { editorial: [2, '孔版本來就是 zine 與刊物的印法'], diagonal: [1, '斜切色帶像套版錯位'], stack: [1, '一疊印刷品'], swiss: [1, '瑞士海報常用套色'], canvas: [1, '印刷地圖'], strip: [1, '摺頁展開'], ledger: [-1, '網點和錯版會干擾表格閱讀'] },
+  wood: { editorial: [2, '版畫與書籍裝幀同源'], strip: [2, '手卷就是橫向長卷'], stack: [1, '和紙層疊'], specimen: [1, '博物館的拓本陳列'], diagonal: [-1, '木刻構圖重留白與垂直'], template: [-1, '朱印變成貼紙'] },
+  chart: { canvas: [2, '海圖就是空間畫布'], orbit: [2, '羅經花就是軌道'], strip: [1, '航線是序列'], specimen: [1, '海圖的圖例與引線'], ledger: [1, '航海日誌'], editorial: [1, '地理雜誌'], template: [-1, '圖框說明被塞進卡片'] },
+  term: { ledger: [2, '終端機輸出就是對齊的欄位'], swiss: [1, '字元網格'], stack: [1, '重疊的視窗'], strip: [1, '捲動的日誌'], editorial: [-1, '首字放大與雙欄不是終端機的語言'], diagonal: [-1, '字元網格沒有斜線'], orbit: [-1, '圓形在字元格裡會鋸齒，除非是雷達'], template: [-1, '卡片和藥丸按鈕不屬於終端機'] },
+  card: { diagonal: [2, '斜切色帶是預告信的招牌'], stack: [2, '拼貼本來就是一疊剪下來的紙'], canvas: [1, '貼在牆上的線索板'], editorial: [1, '龐克 zine'], swiss: [-1, '網格太守規矩，要刻意打破'], ledger: [-2, '拼貼字會毀掉表格，除非只放在合計列'], template: [-1, '置中卡片會讓拼貼字變廉價'] },
+  plate: { canvas: [2, '街廓網格加門牌就是地圖'], ledger: [2, '路段列表本來就是門牌索引'], strip: [1, '沿著一條街走過去'], swiss: [1, '門牌的對齊感'], diagonal: [-1, '門牌是正的，斜了就不可信'], template: [-1, '門牌被縮成 icon 方塊'] },
+  slab: { specimen: [2, '評級卡就是被封裝的標本'], stack: [2, '一疊評級盒'], ledger: [1, '收藏清單'], swiss: [1, '卡套格是網格'], strip: [1, '展示櫃一格一格'], editorial: [-1, '刊物的長文和封裝物件不同調'], template: [-1, '評級標籤變成普通卡片'] }
+};
+const compat = (m, g) => (COMPAT[m] && COMPAT[m][g]) || [0, '沒有特別加分或衝突'];
+
+/* ═════════ 表現力預算 ═════════ */
+const REGIONS = [['nav', '導覽'], ['hero', '主視覺'], ['body', '內容'], ['proof', '佐證'], ['list', '列表'], ['cta', '行動'], ['foot', '頁尾']];
+const BUDGETS = {
+  quiet: { name: '安靜', use: '後台、SaaS', lv: { nav: 0, hero: 0, body: 0, proof: 0, list: 0, cta: 0, foot: 0 } },
+  read: { name: '刊物', use: '部落格、文件', lv: { nav: 1, hero: 1, body: 1, proof: 1, list: 1, cta: 0, foot: 0 } },
+  brand: { name: '品牌', use: '官網、商品頁', lv: { nav: 2, hero: 3, body: 1, proof: 1, list: 1, cta: 2, foot: 1 } },
+  event: { name: '活動', use: '活動頁、作品集', lv: { nav: 2, hero: 3, body: 2, proof: 3, list: 2, cta: 2, foot: 1 } },
+  loud: { name: '全開', use: '反例', lv: { nav: 3, hero: 3, body: 3, proof: 3, list: 3, cta: 3, foot: 3 } }
+};
+
+/* ═════════ 狀態 ═════════ */
+const S = { content: 'studio', grammar: 'swiss', motif: 'draft', budget: 'brand', lv: { ...BUDGETS.brand.lv }, dens: 'mid', dev: 'desk', seed: 427, front: 0 };
+const RM = () => $('#opt-rm').checked || matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ═════════ 共用片段 ═════════ */
+function ctx() {
+  const c = CONTENT[S.content], m = MOTIFS[S.motif];
+  const r = mulberry(S.seed * 7919 + hash(S.grammar + S.motif + S.content));
+  const pick = a => a[Math.floor(r() * a.length)];
+  return { c, m, lv: S.lv, r, pick, seed: S.seed, feat: S.seed % c.items.length, ang: () => pick(m.angles.filter(a => Math.abs(a) < 45)) };
+}
+const R = (x, key, html, o = {}) => {
+  const tag = o.tag || 'section';
+  const lab = { hero: '主視覺', body: x.c.itemsTitle, proof: x.c.statsTitle, list: x.c.logTitle, cta: '行動' }[key];
+  return `<${tag} class="r r-${key} ${o.cls || ''}" data-r="${key}" data-x="${x.lv[key]}"${tag === 'section' && lab ? ` aria-label="${esc(lab)}"` : ''}>${html}</${tag}>`;
+};
+function T(x, s, key) {
+  return esc(s).replace(/\[(.+?)\]/g, (_, w) => {
+    if (x.m === MOTIFS.card && x.lv[key] >= 2) {
+      const ch = [...w].map((c, i) => `<span class="rz rz${(i + x.seed) % 4}" style="--a:${x.m.angles[(i * 3 + x.seed) % 4] / 2}deg">${c}</span>`).join('');
+      return `<em class="em em-rz"><span class="vh">${w}</span><span aria-hidden="true">${ch}</span></em>`;
+    }
+    return `<em class="em">${w}</em>`;
+  });
+}
+const tilt = x => `style="--a:${x.ang()}deg"`;
+const NAV = x => R(x, 'nav', `<a class="brand" href="#"><span class="mk" aria-hidden="true">${esc(x.c.mark)}</span><span class="bn">${esc(x.c.brand)}</span></a>
+  <nav class="nav" aria-label="網站導覽"><ul>${x.c.nav.map((n, i) => `<li><a href="#"${i ? '' : ' aria-current="page"'}>${esc(n)}</a></li>`).join('')}</ul></nav>
+  <a class="btn btn-s" href="#">${esc(x.c.cta[0])}</a>`, { tag: 'header' });
+const FOOT = x => R(x, 'foot', `<span class="brand"><span class="bn">${esc(x.c.brand)}</span></span><span class="meta">${esc(x.c.foot)}</span><ul>${x.c.nav.map(n => `<li><a href="#">${esc(n)}</a></li>`).join('')}</ul>`, { tag: 'footer' });
+const ACTS = x => `<div class="acts"><a class="btn" href="#">${esc(x.c.cta[0])}</a><a class="btn ghost" href="#">${esc(x.c.cta[1])}</a></div>`;
+const KICK = x => `<p class="kick">${esc(x.c.kicker)}</p>`;
+const H1 = (x, t = true) => `<h1 class="h1${t ? ' tilt' : ''}" ${t ? tilt(x) : ''}>${T(x, x.c.title, 'hero')}</h1>`;
+const LEDE = x => `<p class="lede">${esc(x.c.lede)}</p>`;
+const ORN = x => ORNS[x.m === MOTIFS.plain ? 'plain' : S.motif](x);
+const ART = x => `<div class="art" aria-hidden="true">${ARTS[S.motif](x)}</div>`;
+const LOG = (x, cls = 'log') => `<ul class="${cls}">${x.c.log.map(e => `<li><a class="row" href="#"><time class="meta num">${esc(e.d)}</time><span>${esc(e.t)}</span><span class="tag meta">${esc(e.g)}</span></a></li>`).join('')}</ul>`;
+const QUOTE = x => `<blockquote class="q"><p>${esc(x.c.quote.t)}</p><footer class="meta">${esc(x.c.quote.by)}</footer></blockquote>`;
+const STAT = s => `<span class="v num">${esc(s.v)}<small>${esc(s.u)}</small></span><span class="meta">${esc(s.l)}</span>`;
+const ICONS = ['<svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>', '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>', '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>'];
+const numSum = x => { const n = x.c.items.reduce((a, it) => a + (+String(it.num).replace(/,/g, '') || 0), 0); return n.toLocaleString('en-US'); };
+
+/* ═════════ 各語法的渲染 ═════════ */
+const RENDER = {
+  template: x => NAV(x)
+    + R(x, 'hero', `<p class="badge">全新上線 · ${esc(x.c.items[0].name)} →</p>${H1(x, false)}${LEDE(x)}${ACTS(x)}${ART(x)}${ORN(x)}
+      <div class="logos" aria-label="合作夥伴（範例）"><span>NORTHWIND</span><span>KAIMANA</span><span>HOLLOW</span><span>ZENITH</span><span>PARCEL</span></div>`)
+    + R(x, 'body', `<h2 class="h2">${esc(x.c.itemsTitle)}</h2><div class="cards3">${x.c.items.slice(0, 3).map((it, i) => `<div class="card"><span class="ico" aria-hidden="true">${ICONS[i]}</span><h3 class="h3">${esc(it.name)}</h3><p>${esc(it.desc)}</p></div>`).join('')}</div>`)
+    + R(x, 'proof', `<h2 class="h2">${esc(x.c.statsTitle)}</h2><div class="tp-stats">${x.c.stats.map(s => `<div>${STAT(s)}</div>`).join('')}</div>${QUOTE(x)}`)
+    + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2><div class="cards3">${x.c.log.slice(0, 3).map(e => `<a class="card row" href="#"><span class="meta">${esc(e.d)}</span><h3 class="h3">${esc(e.t)}</h3></a>`).join('')}</div>`)
+    + R(x, 'cta', `<h2 class="h2">${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x),
+
+  swiss: x => NAV(x)
+    + R(x, 'hero', `<div class="sw">${KICK(x)}${H1(x)}<p class="sw-num num" aria-hidden="true">${esc(x.c.stats[0].v)}<small>${esc(x.c.stats[0].l)}</small></p>${LEDE(x)}${ACTS(x)}${ART(x)}</div>${ORN(x)}`)
+    + R(x, 'body', `<div class="sw-head"><h2 class="h2">${esc(x.c.itemsTitle)}</h2><span class="meta">${x.c.items.length} 項</span></div>
+      <ol class="sw-rows">${x.c.items.map((it, i) => `<li><a class="row${i === x.feat ? ' feat' : ''}" href="#"><span class="idx">${pad2(i + 1)}</span><span class="h3">${esc(it.name)}</span><span class="d">${esc(it.desc)}</span><span class="meta num">${esc(it.meta)}<br>${esc(it.num)} ${esc(x.c.numLabel)}</span></a></li>`).join('')}</ol>`)
+    + R(x, 'proof', `<div class="sw-stats">${x.c.stats.map(s => `<div><p class="big num">${esc(s.v)}<small>${esc(s.u)}</small></p><p class="meta">${esc(s.l)}</p></div>`).join('')}</div>${QUOTE(x)}`)
+    + R(x, 'list', `<div class="sw"><h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}</div>`)
+    + R(x, 'cta', `<h2 class="h2 tilt" ${tilt(x)}>${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x),
+
+  editorial: x => NAV(x)
+    + R(x, 'hero', `<div class="ed-mast"><span class="ed-no">第 ${10 + x.seed % 80} 期</span><span class="meta">${esc(x.c.brandEn)}</span><span class="meta num">2026 · 10</span></div>
+      <div class="ed-hero"><div>${KICK(x)}${H1(x)}</div>${ART(x)}<div class="ed-cols"><p class="lede drop">${esc(x.c.lede)}</p><p>${esc(x.c.items[x.feat].desc)}</p>${ACTS(x)}</div></div>${ORN(x)}`)
+    + R(x, 'body', `<h2 class="h2">${esc(x.c.itemsTitle)}</h2><ol class="toc">${x.c.items.map((it, i) => `<li class="${i === x.feat ? 'feat' : ''}"><a class="row" href="#"><span class="h3">${esc(it.name)}<small>${esc(it.en)}</small></span><span class="lead" aria-hidden="true"></span><span class="num meta">${esc(it.num)}</span></a><p class="d">${esc(it.desc)}</p></li>`).join('')}</ol>`)
+    + R(x, 'proof', `<blockquote class="pull tilt" ${tilt(x)}><p>「${esc(x.c.quote.t)}」</p><footer class="meta">${esc(x.c.quote.by)}</footer></blockquote><div class="ed-figs">${x.c.stats.map(s => `<div><span class="v num">${esc(s.v)}<small> ${esc(s.u)}</small></span><span class="meta">${esc(s.l)}</span></div>`).join('')}</div>`)
+    + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}`)
+    + R(x, 'cta', `<h2 class="h2">${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x),
+
+  ledger: x => NAV(x)
+    + R(x, 'hero', `<div class="lg-head"><div class="lg-title">${KICK(x)}${H1(x, false)}${LEDE(x)}</div>
+      <dl class="lg-fields"><div><dt>編號</dt><dd class="num">No. ${String(x.seed).padStart(4, '0')}</dd></div><div><dt>日期</dt><dd class="num">2026-10-14</dd></div>${x.c.stats.map(s => `<div><dt>${esc(s.l)}</dt><dd>${esc(s.v)}<small>${esc(s.u)}</small></dd></div>`).join('')}<div><dt>狀態</dt><dd>營運中</dd></div></dl>
+      <div class="lg-foot">${ACTS(x)}${ART(x)}</div></div>${ORN(x)}`)
+    + R(x, 'body', `<h2 class="h2">${esc(x.c.itemsTitle)}</h2><div class="tbl-wrap"><table class="lg-t"><thead><tr><th scope="col">No.</th><th scope="col">名稱</th><th scope="col" class="c-d">說明</th><th scope="col">備註</th><th scope="col" class="r-al">${esc(x.c.numLabel)}</th></tr></thead>
+      <tbody>${x.c.items.map((it, i) => `<tr class="row${i === x.feat ? ' feat' : ''}"><td class="idx">${pad2(i + 1)}</td><td><b>${esc(it.name)}</b></td><td class="d c-d">${esc(it.desc)}</td><td class="meta">${esc(it.meta)}</td><td class="num r-al">${esc(it.num)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="2">合計 ${x.c.items.length} 筆</td><td class="c-d"></td><td></td><td class="num r-al">${numSum(x)}</td></tr></tfoot></table></div>`)
+    + R(x, 'proof', `<div class="lg-sum">${x.c.stats.map(s => `<div>${STAT(s)}</div>`).join('')}</div><div class="lg-note"><span class="meta">備註</span>${QUOTE(x)}</div>`)
+    + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}`)
+    + R(x, 'cta', `<div class="lg-sign"><div><p class="meta">簽核</p><h2 class="h2">${esc(x.c.ctaTitle)}</h2></div>${ACTS(x)}</div>`) + FOOT(x),
+
+  specimen: x => {
+    const its = x.c.items, side = i => i % 2 ? 'R' : 'L';
+    const pts = its.map((_, i) => ({ x: 43 + x.r() * 14, y: 20 + (i / (its.length - 1)) * 60 }));
+    const ly = i => 14 + Math.floor(i / 2) * (side(i) === 'L' ? 34 : 36) + (side(i) === 'R' ? 10 : 0);
+    return NAV(x)
+      + R(x, 'hero', `<div class="sp-hero"><div class="sp-txt">${KICK(x)}${H1(x)}${LEDE(x)}${ACTS(x)}</div>
+        <figure class="sp-board"><div class="sp-art" aria-hidden="true">${ARTS[S.motif](x, true)}</div>
+        <svg class="sp-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${its.map((_, i) => `<line x1="${side(i) === 'L' ? 28 : 72}" y1="${ly(i)}" x2="${pts[i].x}" y2="${pts[i].y}"/>`).join('')}</svg>
+        ${pts.map((p, i) => `<span class="sp-pt" style="left:${p.x}%;top:${p.y}%" aria-hidden="true">${i + 1}</span>`).join('')}
+        <ol class="sp-labels">${its.map((it, i) => `<li class="${side(i)}" style="top:${ly(i)}%"><span class="n">${pad2(i + 1)}</span> ${esc(it.name)}<span class="meta">${esc(it.meta)}</span></li>`).join('')}</ol>
+        <figcaption class="meta">圖 1 · ${esc(x.c.objName)}標本 · No. ${x.seed}</figcaption></figure>
+        <ol class="sp-legend" aria-hidden="true">${its.map((it, i) => `<li><span class="n">${i + 1}</span>${esc(it.name)}</li>`).join('')}</ol></div>${ORN(x)}`)
+      + R(x, 'body', `<h2 class="h2">${esc(x.c.itemsTitle)}</h2><ul class="tags">${its.map((it, i) => `<li class="${i === x.feat ? 'feat' : ''}"><a class="row" href="#"><span class="meta">標本 No.${pad2(i + 1)} · ${esc(it.en)}</span><span class="h3">${esc(it.name)}</span><span class="d">${esc(it.desc)}</span><span class="meta num">${esc(it.num)} ${esc(x.c.numLabel)}</span></a></li>`).join('')}</ul>`)
+      + R(x, 'proof', `<div class="sp-stats">${x.c.stats.map(s => `<div><span class="meta">${esc(s.l)}</span><span class="v num">${esc(s.v)}<small> ${esc(s.u)}</small></span></div>`).join('')}</div>${QUOTE(x)}`)
+      + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}`)
+      + R(x, 'cta', `<h2 class="h2">${esc(x.c.ctaTitle)}</h2><div style="margin-top:20px">${ACTS(x)}</div>`) + FOOT(x);
+  },
+
+  diagonal: x => NAV(x)
+    + R(x, 'hero', `<div class="dg-band" aria-hidden="true"></div><div class="dg-hero">${KICK(x)}${H1(x)}${LEDE(x)}${ACTS(x)}</div>${ART(x)}${ORN(x)}`)
+    + R(x, 'body', `<h2 class="h2 tilt" ${tilt(x)}>${esc(x.c.itemsTitle)}</h2><ol class="stair">${x.c.items.map((it, i) => `<li style="--i:${i}" class="${i === x.feat ? 'feat' : ''}"><a class="row" href="#"><span class="idx">${pad2(i + 1)}</span><span class="h3">${esc(it.name)}</span><span class="d">${esc(it.desc)}</span></a></li>`).join('')}</ol>`)
+    + R(x, 'proof', `<div class="dg-skew"><div><div class="dg-stats">${x.c.stats.map(s => `<div><span class="v num">${esc(s.v)}<small>${esc(s.u)}</small></span><br><span class="meta">${esc(s.l)}</span></div>`).join('')}</div>${QUOTE(x)}</div></div>`)
+    + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}`)
+    + R(x, 'cta', `<h2 class="h2 tilt" ${tilt(x)}>${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x),
+
+  orbit: x => {
+    const its = x.c.items, n = its.length, off = x.r() * 40 - 20;
+    const deg = i => Math.round((off + i * 360 / n + 360) % 360);
+    const pos = i => { const a = (deg(i) - 90) * Math.PI / 180; return `left:${50 + Math.cos(a) * 41}%;top:${50 + Math.sin(a) * 41}%`; };
+    return NAV(x)
+      + R(x, 'hero', `<div class="ob-hero"><div class="ob-txt">${KICK(x)}${H1(x)}${LEDE(x)}${ACTS(x)}</div>
+        <div class="ob-sys" aria-hidden="true"><div class="ob-ring r1"></div><div class="ob-ring r2"></div><div class="ob-core"><span class="mk">${esc(x.c.mark)}</span><span class="meta">${esc(x.c.brandEn)}</span></div>
+        ${its.map((it, i) => `<span class="ob-node${i === x.feat ? ' feat' : ''}" data-n="${i + 1}" style="${pos(i)}"><span class="dot"></span><span class="nm">${esc(it.name)}</span><span class="meta num">${deg(i)}°</span></span>`).join('')}</div></div>${ORN(x)}`)
+      + R(x, 'body', `<h2 class="h2">${esc(x.c.itemsTitle)}</h2><ol class="ob-list">${its.map((it, i) => `<li class="${i === x.feat ? 'feat' : ''}"><a class="row" href="#"><span class="deg num">${pad2(i + 1)}<br>${deg(i)}°</span><span class="h3">${esc(it.name)}</span><span class="d">${esc(it.desc)}</span></a></li>`).join('')}</ol>`)
+      + R(x, 'proof', `<div class="ob-gauge">${x.c.stats.map(s => `<div><span class="v num">${esc(s.v)}</span><span class="meta">${esc(s.u)} · ${esc(s.l)}</span></div>`).join('')}</div>${QUOTE(x)}`)
+      + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}`)
+      + R(x, 'cta', `<h2 class="h2 tilt" ${tilt(x)}>${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x);
+  },
+
+  strip: x => NAV(x)
+    + R(x, 'hero', `<div>${KICK(x)}${H1(x)}</div><div style="display:grid;gap:18px">${LEDE(x)}${ACTS(x)}<p class="st-hint">往右捲動，共 ${x.c.items.length} 站</p></div>${ORN(x)}`)
+    + R(x, 'body', `<h2 class="h2">${esc(x.c.itemsTitle)}</h2><div class="st-wrap" tabindex="0" role="region" aria-label="${esc(x.c.itemsTitle)}，可橫向捲動"><ol class="st-track">${x.c.items.map((it, i) => `<li class="st-cell${i === x.feat ? ' feat' : ''}"><span class="st-tick">${pad2(i + 1)} · ${esc(it.en)}</span><a class="row" href="#"><span class="h3">${esc(it.name)}</span><span class="meta">${esc(it.meta)}</span><span class="d">${esc(it.desc)}</span><span class="big num">${esc(it.num)}</span></a></li>`).join('')}</ol></div>`)
+    + R(x, 'proof', `<div class="st-stats">${x.c.stats.map(s => `<div><span class="v num">${esc(s.v)}<small>${esc(s.u)}</small></span><br><span class="meta">${esc(s.l)}</span></div>`).join('')}</div>${QUOTE(x)}`)
+    + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2><div class="st-wrap" tabindex="0" role="region" aria-label="${esc(x.c.logTitle)}，可橫向捲動"><ol class="st-track">${x.c.log.map(e => `<li class="st-cell"><span class="st-tick num">${esc(e.d)}</span><a class="row" href="#"><span>${esc(e.t)}</span><span class="tag meta" style="justify-self:start">${esc(e.g)}</span></a></li>`).join('')}</ol></div>`)
+    + R(x, 'cta', `<h2 class="h2 tilt" ${tilt(x)}>${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x),
+
+  canvas: x => {
+    const its = x.c.items, used = new Set(), cells = [];
+    its.forEach(() => { let c, k = 0; do { c = [Math.floor(x.r() * 6), Math.floor(x.r() * 4)]; k++; } while ((used.has(c + '') || used.has([c[0] + 1, c[1]] + '') || used.has([c[0] - 1, c[1]] + '')) && k < 60); used.add(c + ''); cells.push(c); });
+    const P = cells.map(([cx, cy]) => ({ x: (cx + .5) / 6 * 100, y: (cy + .5) / 4 * 100 }));
+    const order = P.map((p, i) => i).sort((a, b) => P[a].x - P[b].x);
+    const path = 'M' + order.map(i => `${P[i].x.toFixed(1)} ${P[i].y.toFixed(1)}`).join(' L');
+    const co = i => 'ABCDEF'[cells[i][0]] + (cells[i][1] + 1);
+    return NAV(x)
+      + R(x, 'hero', `<div class="cv-top"><div class="cv-txt">${KICK(x)}${H1(x)}</div><div class="cv-txt">${LEDE(x)}${ACTS(x)}</div></div>
+        <div class="cv-field" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${path}"/></svg>
+        ${'ABCDEF'.split('').map((l, i) => `<span class="cv-ax" style="left:calc(${(i + .5) / 6 * 100}% - 4px);top:4px">${l}</span>`).join('')}${[1, 2, 3, 4].map(n => `<span class="cv-ax" style="left:6px;top:calc(${(n - .5) / 4 * 100}% - 7px)">${n}</span>`).join('')}
+        ${its.map((it, i) => `<span class="cv-node${i === x.feat ? ' feat' : ''}${P[i].x > 70 ? ' flip' : ''}" style="left:${P[i].x}%;top:${P[i].y}%"><span class="dot">${i + 1}</span><span class="nm">${esc(it.name)}</span></span>`).join('')}</div>${ORN(x)}`)
+      + R(x, 'body', `<h2 class="h2">${esc(x.c.itemsTitle)}</h2><ol class="cv-legend">${its.map((it, i) => `<li class="${i === x.feat ? 'feat' : ''}"><a class="row" href="#"><span class="co">${co(i)}</span><span class="h3">${i + 1}. ${esc(it.name)}</span><span class="meta num">${esc(it.num)}</span><span class="d">${esc(it.desc)}</span></a></li>`).join('')}</ol>`)
+      + R(x, 'proof', `<div class="cv-stats">${x.c.stats.map(s => `<div>${STAT(s)}</div>`).join('')}</div>${QUOTE(x)}`)
+      + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}`)
+      + R(x, 'cta', `<h2 class="h2 tilt" ${tilt(x)}>${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x);
+  },
+
+  stack: x => {
+    const its = x.c.items, n = its.length + 1, f = S.front % n;
+    const o = i => (i - f + n) % n;
+    const sa = Math.max(-6, Math.min(6, x.m.angles.find(a => a !== 0 && Math.abs(a) < 45) || 0));
+    const sheet = (i, inner, cls) => `<div class="sheet ${cls}" id="sh-${i}" role="tabpanel" aria-labelledby="tb-${i}" data-o="${o(i)}" style="--o:${o(i)}"${o(i) ? ' inert' : ''}>${inner}</div>`;
+    return NAV(x)
+      + R(x, 'hero', `<div class="stk-tabs" role="tablist" aria-label="卷宗頁籤">${['封面', ...its.map(it => it.name.split(' ')[0])].map((t, i) => `<button type="button" role="tab" class="stk-tab" id="tb-${i}" aria-controls="sh-${i}" aria-selected="${i === f}" tabindex="${i === f ? 0 : -1}" data-i="${i}">${esc(t)}</button>`).join('')}</div>
+        <div class="stk" style="--sa:${sa / 3}deg">${sheet(0, `${KICK(x)}${H1(x)}${LEDE(x)}${ACTS(x)}${ART(x)}`, 'sh-cover')}${its.map((it, i) => sheet(i + 1, `<p class="meta">${pad2(i + 1)} / ${pad2(its.length)} · ${esc(it.en)}</p><h2 class="h2">${esc(it.name)}</h2><p class="meta">${esc(it.meta)}</p><p class="big num">${esc(it.num)}<small>${esc(x.c.numLabel)}</small></p><p class="lede">${esc(it.desc)}</p>`, 'sh-item')).join('')}</div>
+        <div class="stk-pad" style="--n:3"></div>${ORN(x)}`)
+      + R(x, 'proof', `<div class="stk-clip">${x.c.stats.map(s => `<div>${STAT(s)}</div>`).join('')}</div>${QUOTE(x)}`)
+      + R(x, 'list', `<h2 class="h2">${esc(x.c.logTitle)}</h2>${LOG(x)}`)
+      + R(x, 'cta', `<h2 class="h2 tilt" ${tilt(x)}>${esc(x.c.ctaTitle)}</h2>${ACTS(x)}`) + FOOT(x);
+  }
+};
+
+/* ═════════ 主視覺（每個材料一種，吃種子） ═════════ */
+const svg = (inner, vb = '0 0 400 300') => `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+let uid = 0;
+const ARTS = {
+  plain: x => { const id = 'bl' + (++uid); return svg(`<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="st-a"/><stop offset="1" class="st-b"/></linearGradient><filter id="${id}f"><feGaussianBlur stdDeviation="18"/></filter></defs>
+    <g filter="url(#${id}f)" opacity=".85"><circle cx="${170 + x.r() * 40}" cy="150" r="90" fill="url(#${id})"/><circle cx="${250 + x.r() * 30}" cy="${110 + x.r() * 40}" r="60" class="f-acc3"/></g>`); },
+  draft: x => { const w = 150 + Math.round(x.r() * 40), h = 96 + Math.round(x.r() * 30), X = 40, Y = 54, sx = X + w + 34, r = Math.round(h * .28);
+    return svg(`<rect x="${X}" y="${Y}" width="${w}" height="${h}" class="s-ink"/><circle cx="${X + w / 2}" cy="${Y + h / 2}" r="${r}" class="s-ink"/>
+    <rect x="${sx}" y="${Y}" width="62" height="${h}" class="s-ink"/><line x1="${sx}" y1="${Y + h / 2 - r}" x2="${sx + 62}" y2="${Y + h / 2 - r}" class="s-thin" stroke-dasharray="4 3"/><line x1="${sx}" y1="${Y + h / 2 + r}" x2="${sx + 62}" y2="${Y + h / 2 + r}" class="s-thin" stroke-dasharray="4 3"/>
+    <line x1="${X - 14}" y1="${Y + h / 2}" x2="${sx + 76}" y2="${Y + h / 2}" class="s-cl"/><line x1="${X + w / 2}" y1="${Y - 16}" x2="${X + w / 2}" y2="${Y + h + 16}" class="s-cl"/>
+    <g class="s-thin"><line x1="${X}" y1="${Y + h + 12}" x2="${X}" y2="${Y + h + 40}"/><line x1="${X + w}" y1="${Y + h + 12}" x2="${X + w}" y2="${Y + h + 40}"/><line x1="${X}" y1="${Y + h + 32}" x2="${X + w}" y2="${Y + h + 32}"/>
+    <line x1="${X - 4}" y1="${Y + h + 36}" x2="${X + 4}" y2="${Y + h + 28}"/><line x1="${X + w - 4}" y1="${Y + h + 36}" x2="${X + w + 4}" y2="${Y + h + 28}"/>
+    <line x1="${X - 30}" y1="${Y}" x2="${X - 6}" y2="${Y}"/><line x1="${X - 30}" y1="${Y + h}" x2="${X - 6}" y2="${Y + h}"/><line x1="${X - 22}" y1="${Y}" x2="${X - 22}" y2="${Y + h}"/></g>
+    <text x="${X + w / 2}" y="${Y + h + 28}" text-anchor="middle" class="t-m">${w * 2}</text><text x="${X - 26}" y="${Y + h / 2 - 6}" text-anchor="end" class="t-m">${h * 2}</text>
+    <text x="${X + w / 2 + r * .72 + 6}" y="${Y + h / 2 - r * .72}" class="t-m">R${r * 2}</text><text x="${sx}" y="${Y - 10}" class="t-m">側視</text><text x="${X}" y="${Y - 10}" class="t-m">正視 · 1:2</text>`); },
+  riso: x => { const id = 'ht' + (++uid), c = [[150 + x.r() * 30, 140 + x.r() * 20, 'f-acc'], [220 + x.r() * 30, 120 + x.r() * 30, 'f-acc2'], [190 + x.r() * 20, 190 + x.r() * 10, 'f-acc3']];
+    return svg(`<defs><pattern id="${id}" width="8" height="8" patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="2.2" class="f-acc2"/></pattern></defs>
+    ${c.map(([cx, cy, f], i) => `<circle cx="${cx}" cy="${cy}" r="${74 - i * 8}" class="${f} mb" opacity=".88"/>`).join('')}<rect x="60" y="214" width="280" height="40" fill="url(#${id})" class="mb" opacity=".7"/>
+    <text x="64" y="44" class="t-m">PLATE 1/3 · PINK · BLUE · YELLOW</text>`); },
+  wood: x => { let w = ''; for (let row = 0; row < 3; row++) for (let col = -1; col < 8; col++) { const cx = col * 56 + (row % 2) * 28, cy = 236 + row * 22; for (let k = 3; k > 0; k--) w += `<circle cx="${cx}" cy="${cy}" r="${k * 9}" class="${k === 3 ? 'f-bg' : ''} s-thin"/>`; }
+    return svg(`<rect x="${130 + x.r() * 20}" y="40" width="130" height="130" class="f-acc" rx="3"/><rect x="${136 + x.r() * 20}" y="46" width="118" height="118" fill="none" stroke="var(--p-on-acc)" stroke-width="2" opacity=".5"/>
+    <text x="${195 + x.r() * 10}" y="128" text-anchor="middle" class="t-d">${esc(x.c.mark)}</text><g clip-path="inset(0)">${w}</g>`); },
+  chart: x => { const cx = 200, cy = 140; let rose = ''; for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, L = i % 4 === 0 ? 92 : i % 2 ? 46 : 64, a1 = a - .12, a2 = a + .12, ri = 14;
+      rose += `<polygon points="${cx + Math.sin(a) * L},${cy - Math.cos(a) * L} ${cx + Math.sin(a1) * ri},${cy - Math.cos(a1) * ri} ${cx},${cy} " class="f-ink"/><polygon points="${cx + Math.sin(a) * L},${cy - Math.cos(a) * L} ${cx + Math.sin(a2) * ri},${cy - Math.cos(a2) * ri} ${cx},${cy}" class="f-bg s-thin"/>`; }
+    const snd = Array.from({ length: 14 }, () => `<text x="${20 + x.r() * 360}" y="${20 + x.r() * 270}" class="t-m" opacity=".6" font-size="9">${Math.round(4 + x.r() * 60)}</text>`).join('');
+    return svg(`${snd}<ellipse cx="${80 + x.r() * 30}" cy="250" rx="120" ry="44" class="s-thin" opacity=".5"/><ellipse cx="${80 + x.r() * 30}" cy="256" rx="90" ry="28" class="s-thin" opacity=".5"/>
+    <circle cx="${cx}" cy="${cy}" r="104" class="s-thin"/><circle cx="${cx}" cy="${cy}" r="98" class="s-thin" stroke-dasharray="1 4"/>${rose}<text x="${cx}" y="${cy - 110}" text-anchor="middle" class="t-m" font-weight="600">N</text>
+    <line x1="20" y1="${40 + x.r() * 40}" x2="380" y2="${200 + x.r() * 60}" class="s-acc" stroke-dasharray="6 4"/>`); },
+  term: x => { const rows = x.c.stats.map((st, i) => { const b = Math.max(3, Math.round(5 + x.r() * 13)); return `<text x="30" y="${118 + i * 40}" class="t-m" style="font:400 20px var(--f-m);fill:var(--p-muted)">${esc(st.l)}</text>${Array.from({ length: 18 }, (_, k) => `<rect x="${150 + k * 12}" y="${103 + i * 40}" width="9" height="18" class="${k < b ? 'f-ink' : 'f-acc3'}"/>`).join('')}`; }).join('');
+    return svg(`<rect x="14" y="20" width="372" height="262" class="s-ink" stroke-width="2"/><rect x="20" y="26" width="360" height="250" class="s-thin" opacity=".5"/><line x1="14" y1="68" x2="386" y2="68" class="s-ink"/>
+    <text x="30" y="54" style="font:400 24px var(--f-m);fill:var(--p-ink)">${esc(x.c.brandEn)}</text><rect x="352" y="38" width="12" height="20" class="f-acc"/>${rows}
+    <text x="30" y="258" style="font:400 18px var(--f-m);fill:var(--p-muted)">UPTIME ${40 + x.seed % 300}D · LOAD 0.${x.seed % 9}${x.seed % 7} · OK</text>`); },
+  card: x => { let p = ''; const n = 22; for (let i = 0; i < n * 2; i++) { const a = i * Math.PI / n, rr = i % 2 ? 78 + x.r() * 10 : 128 + x.r() * 18; p += `${200 + Math.cos(a) * rr},${150 + Math.sin(a) * rr} `; }
+    return svg(`<polygon points="${p}" class="f-acc"/><polygon points="${p}" class="f-ink" transform="translate(200 150) scale(.62) translate(-200 -150)"/>
+    <text x="200" y="176" text-anchor="middle" style="font:400 76px Anton,sans-serif;fill:#fff" transform="rotate(${x.ang()} 200 150)">${esc(x.c.mark)}!</text>`); },
+  plate: x => { const s = 20 + x.seed % 180; let g = ''; for (let i = 0; i < 6; i++) g += `<line x1="0" y1="${30 + i * 48 + x.r() * 8}" x2="400" y2="${20 + i * 50}" class="s-thin" opacity=".35"/>`; for (let i = 0; i < 7; i++) g += `<line x1="${20 + i * 62}" y1="0" x2="${30 + i * 60 + x.r() * 10}" y2="300" class="s-thin" opacity=".35"/>`;
+    return svg(`${g}<line x1="0" y1="168" x2="400" y2="140" style="stroke:var(--p-ink);stroke-width:7;opacity:.18"/>
+    <rect x="96" y="78" width="208" height="112" rx="10" class="f-acc"/><rect x="103" y="85" width="194" height="98" rx="6" fill="none" stroke="#fff" stroke-width="2"/>
+    <text x="200" y="118" text-anchor="middle" style="font:900 20px var(--f-b);fill:#fff;letter-spacing:2px">${esc(x.c.items[x.feat].name.slice(0, 7))}</text>
+    <text x="200" y="166" text-anchor="middle" style="font:900 40px var(--f-b);fill:#fff">${s}<tspan style="font-size:20px"> 號</tspan></text>
+    <rect x="262" y="198" width="96" height="62" class="f-acc2" transform="rotate(${x.ang() + 4} 310 229)"/><text x="310" y="236" text-anchor="middle" transform="rotate(${x.ang() + 4} 310 229)" style="font:900 22px var(--f-b);fill:#fff">出租</text>`); },
+  slab: (x, big) => { const id = 'fo' + (++uid); const g = (9 + (x.seed % 2) * .5).toFixed(1);
+    return svg(`<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C9D6FF"/><stop offset=".35" stop-color="#FFE7B3"/><stop offset=".6" stop-color="#D5F5E8"/><stop offset="1" stop-color="#E4D3FF"/></linearGradient></defs>
+    <rect x="128" y="10" width="144" height="280" rx="10" class="f-surf" style="stroke:var(--p-rule);stroke-width:2"/><rect x="138" y="20" width="124" height="44" rx="3" class="f-bg" style="stroke:var(--p-ink)"/><rect x="138" y="20" width="124" height="7" class="f-acc"/>
+    <text x="146" y="44" class="t-m" font-size="9">${esc(x.c.items[x.feat].name.slice(0, 14))}</text><text x="146" y="57" class="t-m" font-size="8" opacity=".7">CERT ${String(x.seed).padStart(4, '0')}</text>
+    <text x="254" y="56" text-anchor="end" style="font:700 22px var(--f-d);fill:var(--p-acc2)">${g}</text>
+    <rect x="146" y="74" width="108" height="${108 * 88 / 63}" rx="5" fill="url(#${id})" style="stroke:var(--p-ink);stroke-width:1"/><rect x="154" y="82" width="92" height="70" rx="2" class="f-bg" opacity=".55"/><text x="200" y="128" text-anchor="middle" style="font:900 34px var(--f-d);fill:var(--p-ink)">${esc(x.c.mark)}</text>
+    <line x1="154" y1="170" x2="246" y2="170" class="s-thin" opacity=".5"/><line x1="154" y1="180" x2="226" y2="180" class="s-thin" opacity=".5"/>`); }
+};
+
+/* ═════════ 裝飾件（L3） ═════════ */
+const ORNS = {
+  plain: () => '',
+  draft: x => `<div class="orn"><div class="o-title"><span>圖名</span><span>${esc(x.c.objName)}</span><span>比例</span><span>1:2</span><span>圖號</span><span>${esc(x.c.mark)}-${String(x.seed).padStart(4, '0')}</span></div></div>`,
+  riso: () => `<div class="orn o-reg"><span class="x"></span><i style="background:#FF48B0"></i><i style="background:#0078BF"></i><i style="background:#FFE800"></i></div>`,
+  wood: x => `<div class="orn o-colo">${esc(x.c.brand)} 刻<b>${esc(x.c.mark)}</b></div>`,
+  chart: x => `<div class="orn o-cart"><b>Chart No. ${x.seed}</b>25°02′N · 121°33′E<br>SCALE 1:25,000</div>`,
+  term: x => `<div class="orn o-stat">SYS ${String(x.seed).padStart(4, '0')} · ONLINE ▮</div>`,
+  card: () => `<div class="orn o-burst">NOTICE!</div>`,
+  plate: x => `<div class="orn o-plate"><small>${esc(x.c.items[x.feat].en)}</small>${esc(x.c.items[x.feat].name.slice(0, 7))}<b>${20 + x.seed % 180} 號</b></div>`,
+  slab: x => `<div class="orn o-cert"><b>${(9 + (x.seed % 2) * .5).toFixed(1)}</b><span>GEM MINT</span><span>CERT ${String(x.seed).padStart(4, '0')}</span></div>`
+};
+
+/* ═════════ 評分 ═════════ */
+function cliches() {
+  const L = S.lv, out = [], g = S.grammar, m = S.motif;
+  if (g === 'template') out.push('置中 hero ＋ 一段話 ＋ 兩顆藥丸按鈕', '三張等寬卡片，各配一個色塊圖示', 'hero 下方立刻接 logo 牆', '每個區塊都是置中的滿版帶', '功能、評價、文章用同一種卡片格', '標題上方的「全新上線」徽章');
+  if (m === 'plain') out.push('從頭到尾只用一種幾何無襯線字', '卡片、按鈕、輸入框同一個大圓角');
+  if (m === 'plain' && L.hero >= 3) out.push('標題用漸層字', '抽象光暈與漸層背景');
+  const n3 = Object.values(L).filter(v => v >= 3).length;
+  if (n3 >= 4) out.push(`${n3} 個區域同時是 L3，沒有安靜區`);
+  if (n3 >= 4 && MOTIFS[m].angles.some(a => a)) out.push('到處都在旋轉');
+  if (n3 >= 4 && m === 'card') out.push('到處都是拼貼字');
+  if (n3 >= 4 && m === 'term') out.push('到處都是掃描線');
+  return out;
+}
+function scoreAll() {
+  const [cs, cr] = compat(S.motif, S.grammar), gsh = GRAMMARS[S.grammar].shape, c = CONTENT[S.content];
+  const fit = gsh === 'any' ? 1 : c.shape[gsh];
+  const lv = Object.values(S.lv), n3 = lv.filter(v => v >= 3).length, quiet = lv.filter(v => v <= 1).length;
+  let bud = 0, budWhy = [];
+  if (quiet >= 3) { bud += 4; budWhy.push(`${quiet} 個安靜區`); } else { bud -= 6; budWhy.push('安靜區不足 3 個'); }
+  if (n3 > 2) { bud -= (n3 - 2) * 3; budWhy.push(`L3 有 ${n3} 個，超過 2 個`); }
+  if (n3 === 0 && S.motif !== 'plain') budWhy.push('沒有舞台區，材料只出現在框架');
+  const cl = cliches();
+  const total = Math.max(0, Math.min(100, Math.round(58 + cs * 9 + fit * 7 + bud - cl.length * 5)));
+  return { cs, cr, fit, gsh, bud, budWhy, cl, total };
+}
+
+/* ═════════ 渲染 ═════════ */
+const page = $('#page'), site = $('#site'), viewport = $('#viewport');
+function paint() {
+  const x = ctx();
+  page.className = `page g-${S.grammar} m-${S.motif} d-${S.dens}`;
+  page.innerHTML = RENDER[S.grammar](x);
+  $('#url').textContent = `${x.c.host}/#${S.grammar}-${S.motif}`;
+  spec();
+  try { history.replaceState(null, '', `#${S.grammar}-${S.motif}`); } catch (e) {}
+}
+function spec() {
+  const g = GRAMMARS[S.grammar], m = MOTIFS[S.motif], c = CONTENT[S.content], s = scoreAll();
+  $('#sp-name').textContent = `${g.name} × ${m.name}`;
+  $('#sp-thesis').textContent = `${g.thesis} ${m.thesis}`;
+  $('#sp-score').textContent = s.total;
+  $('#sp-meter').style.width = s.total + '%';
+  $('#sp-verdict').textContent = s.total >= 80 ? '可以直接當候選方向' : s.total >= 62 ? '可用，有一層要再調' : s.cl.length >= 5 ? 'cliché ≥ 5，要重抽骨架' : '衝突太多，換掉其中一軸';
+  const sign = n => (n > 0 ? '+' : '') + n;
+  $('#sp-break').innerHTML = `
+    <dt>版面×材料</dt><dd><b class="${cls(s.cs)}">${sign(s.cs)}</b>${esc(s.cr)}</dd>
+    <dt>內容適配</dt><dd><b>${s.fit}/2</b>${esc(c.name)}是${Object.entries(c.shape).filter(([, v]) => v === 2).map(([k]) => SHAPE_ZH[k]).join('＋')}型內容，${esc(g.name)}${g.shape === 'any' ? '是通用骨架' : `擅長${SHAPE_ZH[g.shape]}`}</dd>
+    <dt>預算</dt><dd><b>${sign(s.bud)}</b>${esc(s.budWhy.join('，'))}</dd>
+    <dt>cliché</dt><dd><b class="${s.cl.length >= 5 ? 'c-m2' : s.cl.length >= 3 ? 'c-m1' : 'c-p2'}">${s.cl.length}</b>${s.cl.length ? '分（門檻 5）' : '沒有命中'}${s.cl.length ? `<ul class="cl-list">${s.cl.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}</dd>`;
+  $('#sp-mat').innerHTML = `
+    <dt>世界材料</dt><dd>${esc(m.material)}${m.from ? `（萃取自 ${esc(m.from)}）` : ''}</dd>
+    <dt>筆觸</dt><dd>${esc(m.mark)}</dd>
+    <dt>角度集</dt><dd class="num">[${m.angles.join(', ')}]</dd>
+    <dt>色票鎖定</dt><dd><span class="swatches">${m.palette.map(p => `<span><i style="background:${p}"></i>${p}</span>`).join('')}</span></dd>
+    <dt>轉場動詞</dt><dd>${esc(m.verb)}</dd>
+    <dt>可讀核心</dt><dd>${esc(m.core)}，任何等級都不風格化</dd>`;
+  renderBudget();
+  $('#sp-yaml').textContent = yaml(s);
+  $('#cur-grammar').textContent = g.name;
+  $('#cur-motif').textContent = m.name;
+  $('#seed-v').textContent = `種子 #${String(S.seed).padStart(4, '0')}`;
+  document.querySelectorAll('#ctl-motif .pick').forEach(b => { const [v] = compat(b.dataset.v, S.grammar); const t = b.querySelector('.compat'); t.className = 'compat ' + cls(v); t.textContent = '相容 ' + sign(v); });
+  document.querySelectorAll('#ctl-grammar .pick').forEach(b => { const [v] = compat(S.motif, b.dataset.v); const t = b.querySelector('.compat'); t.className = 'compat ' + cls(v); t.textContent = '相容 ' + sign(v); });
+}
+const cls = v => ({ 2: 'c-p2', 1: 'c-p1', 0: 'c-0', '-1': 'c-m1', '-2': 'c-m2' }[v]);
+function yaml(s) {
+  const g = GRAMMARS[S.grammar], m = MOTIFS[S.motif], c = CONTENT[S.content];
+  return `design:
+  concept:
+    name: "${g.name} × ${m.name}"
+    content: ${S.content}            # ${c.name}（參考 ${c.ref}）
+    seed: ${S.seed}                  # 用 slug / 卡號 / 地址雜湊
+  layout:
+    grammar: ${g.yaml}
+    content_shape: ${g.shape}
+    density: ${{ airy: 'airy', mid: 'medium', dense: 'dense' }[S.dens]}
+    responsive: transform-not-collapse
+  motif:
+    key: ${S.motif}
+    world_material: "${m.material}"
+    mark: "${m.mark}"
+    angle_set: [${m.angles.join(', ')}]
+    palette_lock: [${m.palette.map(p => `"${p}"`).join(', ')}]
+    transition_verb: ${m.verb}
+    legibility_core: "${m.core}"
+  expression_budget:          # L0 點綴 / L1 框架 / L2 外殼 / L3 舞台
+${REGIONS.map(([k, z]) => `    ${k.padEnd(6)}: L${S.lv[k]}          # ${z}`).join('\n')}
+  scores:
+    compatibility: ${s.cs}          # ${s.cr}
+    content_fit: ${s.fit}
+    budget: ${s.bud}
+    cliche: ${s.cl.length}
+    total: ${s.total}
+  avoid:
+    - all-regions-at-L3
+    - rotate-body-text
+${s.cl.map(t => `    - "${t}"`).join('\n')}`.replace(/\n$/, '');
+}
+function renderBudget() {
+  $('#sp-budget').innerHTML = REGIONS.map(([k, z]) => `<div class="bud-row"><span id="bl-${k}">${z}</span><div class="bud-seg" role="radiogroup" aria-labelledby="bl-${k}">${[0, 1, 2, 3].map(l => `<button type="button" role="radio" aria-checked="${S.lv[k] === l}" class="${l < S.lv[k] ? 'lit' : ''}" data-k="${k}" data-l="${l}" tabindex="${S.lv[k] === l ? 0 : -1}">L${l}</button>`).join('')}</div></div>`).join('');
+}
+
+/* ═════════ 轉場（L4：每個材料自己的動詞） ═════════ */
+const veil = $('#veil');
+async function transition(fn, keepScroll) {
+  const top = viewport.scrollTop;
+  if (RM()) { fn(); if (!keepScroll) viewport.scrollTop = 0; else viewport.scrollTop = top; return; }
+  const m = S.motif, cs = getComputedStyle(page);
+  const acc = cs.getPropertyValue('--p-acc') || '#000', ink = cs.getPropertyValue('--p-ink') || '#000', bg = cs.getPropertyValue('--p-bg') || '#fff';
+  veil.innerHTML = '';
+  const el = (css) => { const d = document.createElement('div'); d.style.cssText = css; veil.appendChild(d); return d; };
+  const V = MOTIFS[m].verb, anims = [];
+  const run = (d, k, o) => { const a = d.animate(k, { fill: 'forwards', ...o }); anims.push(a.finished); return a; };
+  const half = 300;
+  if (V === 'slash') { [0, 1, 2].forEach(i => { const d = el(`left:-20%;width:140%;height:34%;top:${i * 33 - 2}%;background:${i % 2 ? ink : acc};rotate:-8deg;transform-origin:center`); run(d, [{ translate: '-110% 0' }, { translate: '0 0', offset: .45 }, { translate: '0 0', offset: .55 }, { translate: '110% 0' }], { duration: 760, delay: i * 50, easing: 'cubic-bezier(.7,0,.3,1)' }); }); }
+  else if (V === 'draw') { const h = el(`left:0;top:50%;height:1px;width:100%;background:${ink};transform-origin:left`); const v = el(`left:50%;top:0;width:1px;height:100%;background:${ink};transform-origin:top`); const p = el(`inset:0;background:${bg}`);
+    run(h, [{ scale: '0 1' }, { scale: '1 1', offset: .4 }, { scale: '1 1', offset: .7 }, { opacity: 0 }], { duration: 760 }); run(v, [{ scale: '1 0' }, { scale: '1 1', offset: .4 }, { scale: '1 1', offset: .7 }, { opacity: 0 }], { duration: 760 }); run(p, [{ opacity: 0 }, { opacity: 1, offset: .4 }, { opacity: 1, offset: .5 }, { opacity: 0 }], { duration: 760 }); }
+  else if (V === 'register') { ['#FF48B0', '#0078BF', '#FFE800'].forEach((c, i) => { const d = el(`inset:0;background:${S.motif === 'plate' ? [acc, ink, '#D2392A'][i] : c};mix-blend-mode:multiply`); const off = [[-30, -12], [24, 16], [-8, 28]][i]; run(d, [{ translate: `${off[0]}% ${off[1]}%`, opacity: 0 }, { translate: '0 0', opacity: .92, offset: .45 }, { translate: '0 0', opacity: .92, offset: .55 }, { translate: `${-off[0]}% ${-off[1]}%`, opacity: 0 }], { duration: 820, easing: 'cubic-bezier(.6,0,.3,1)' }); }); }
+  else if (V === 'stamp') { const p = el(`inset:0;background:${bg}`); const s = el(`left:50%;top:40%;width:150px;height:150px;margin:-75px 0 0 -75px;background:${acc};border-radius:4px;box-shadow:inset 0 0 0 6px ${acc},inset 0 0 0 9px ${bg};display:grid;place-items:center;color:${bg};font:900 64px var(--f-d)`);
+    s.style.fontFamily = cs.getPropertyValue('--f-d'); s.textContent = CONTENT[S.content].mark;
+    run(p, [{ opacity: 0 }, { opacity: 1, offset: .3 }, { opacity: 1, offset: .62 }, { opacity: 0 }], { duration: 820 }); run(s, [{ scale: 1.8, opacity: 0, rotate: '-14deg' }, { scale: 1, opacity: 1, rotate: '-4deg', offset: .35, easing: 'cubic-bezier(.2,1.6,.4,1)' }, { scale: 1, opacity: 1, rotate: '-4deg', offset: .62 }, { scale: .96, opacity: 0, rotate: '-4deg' }], { duration: 820 }); }
+  else if (V === 'plot') { const p = el(`inset:0;background:${bg}`); const s = el(`inset:0`); s.innerHTML = `<svg viewBox="0 0 100 60" preserveAspectRatio="none" style="width:100%;height:100%"><path d="M0 50 L22 38 L41 44 L63 18 L100 10" fill="none" stroke="${acc}" stroke-width="1.2" stroke-dasharray="3 2" vector-effect="non-scaling-stroke" pathLength="100"/></svg>`;
+    const path = s.querySelector('path'); path.style.strokeDasharray = '100'; run(p, [{ opacity: 0 }, { opacity: 1, offset: .3 }, { opacity: 1, offset: .6 }, { opacity: 0 }], { duration: 860 }); run(path, [{ strokeDashoffset: 100 }, { strokeDashoffset: 0, offset: .6 }, { strokeDashoffset: 0 }], { duration: 860 }); run(s, [{ opacity: 1 }, { opacity: 1, offset: .7 }, { opacity: 0 }], { duration: 860 }); }
+  else if (V === 'boot') { const p = el(`inset:0;background:#000`); const l = el(`left:0;right:0;height:3px;top:0;background:${ink};box-shadow:0 0 12px ${ink}`); run(p, [{ opacity: 0 }, { opacity: 1, offset: .25 }, { opacity: 1, offset: .5 }, { clipPath: 'inset(0 0 0 0)', opacity: 1, offset: .5 }, { clipPath: 'inset(100% 0 0 0)', opacity: 1 }], { duration: 760, easing: 'steps(12)' }); run(l, [{ top: '0%', opacity: 0 }, { top: '0%', opacity: 1, offset: .5 }, { top: '100%', opacity: 1 }], { duration: 760, easing: 'steps(12)' }); }
+  else { const p = el(`inset:0;background:${bg}`); run(p, [{ opacity: 0 }, { opacity: 1, offset: .45 }, { opacity: 1, offset: .55 }, { opacity: 0 }], { duration: 520 }); }
+  const midT = { slash: 380, draw: 330, register: 410, stamp: 380, plot: 330, boot: 380, fade: 260 }[V] || half;
+  setTimeout(() => { fn(); viewport.scrollTop = keepScroll ? top : 0; }, midT);
+  await Promise.all(anims).catch(() => {});
+  veil.innerHTML = '';
+}
+
+/* ═════════ 控制列 ═════════ */
+function seg(id, items, get, set) {
+  const el = $(id);
+  el.innerHTML = items.map(([v, t, sub]) => `<button type="button" data-v="${v}" aria-pressed="${get() === v}"${sub ? ` title="${esc(sub)}"` : ''}>${esc(t)}</button>`).join('');
+  el.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; set(b.dataset.v); sync(); });
+}
+function sync() {
+  document.querySelectorAll('#ctl-content button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.content));
+  document.querySelectorAll('#ctl-budget button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.budget));
+  document.querySelectorAll('#ctl-dens button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.dens));
+  document.querySelectorAll('#ctl-dev button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.dev));
+  document.querySelectorAll('#ctl-grammar .pick').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.grammar));
+  document.querySelectorAll('#ctl-motif .pick').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.motif));
+  $('#stage').dataset.device = S.dev;
+}
+const say = t => { $('#live').textContent = t; };
+seg('#ctl-content', Object.entries(CONTENT).map(([k, c]) => [k, c.name, '參考 ' + c.ref]), () => S.content, v => { S.content = v; transition(paint, true); say('內容：' + CONTENT[v].name); });
+seg('#ctl-budget', Object.entries(BUDGETS).map(([k, b]) => [k, b.name, b.use]), () => S.budget, v => { S.budget = v; S.lv = { ...BUDGETS[v].lv }; paint(); say('預算：' + BUDGETS[v].name); });
+seg('#ctl-dens', [['airy', '疏'], ['mid', '中'], ['dense', '密']], () => S.dens, v => { S.dens = v; paint(); });
+seg('#ctl-dev', [['desk', '桌面'], ['phone', '手機 390']], () => S.dev, v => { S.dev = v; sync(); });
+$('#ctl-grammar').innerHTML = Object.entries(GRAMMARS).map(([k, g]) => `<button type="button" class="pick" data-v="${k}" aria-pressed="false"><svg class="gsch" viewBox="0 0 28 21" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${g.sch.replace(/class="fb"/g, 'style="fill:var(--surface)"')}</svg><span class="pk-n">${esc(g.name)}</span><span class="pk-e">${esc(g.en)}</span><span class="compat"></span></button>`).join('');
+$('#ctl-motif').innerHTML = Object.entries(MOTIFS).map(([k, m]) => `<button type="button" class="pick" data-v="${k}" aria-pressed="false"><span class="pk-sw" aria-hidden="true">${m.palette.map(p => `<i style="background:${p}"></i>`).join('')}</span><span class="pk-n">${esc(m.name)}</span><span class="pk-e">${esc(m.from ? '萃取自 ' + m.from : m.en)}</span><span class="compat"></span></button>`).join('');
+$('#ctl-grammar').addEventListener('click', e => { const b = e.target.closest('.pick'); if (!b || b.dataset.v === S.grammar) return; S.grammar = b.dataset.v; S.front = 0; sync(); transition(paint, false); say('版面：' + GRAMMARS[S.grammar].name); });
+$('#ctl-motif').addEventListener('click', e => { const b = e.target.closest('.pick'); if (!b || b.dataset.v === S.motif) return; S.motif = b.dataset.v; sync(); transition(paint, true); say('材料：' + MOTIFS[S.motif].name); });
+$('#sp-budget').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.lv[b.dataset.k] = +b.dataset.l; S.budget = Object.keys(BUDGETS).find(k => REGIONS.every(([r]) => BUDGETS[k].lv[r] === S.lv[r])) || 'custom'; sync(); paint(); $(`#sp-budget [data-k="${b.dataset.k}"][data-l="${b.dataset.l}"]`).focus(); });
+$('#sp-budget').addEventListener('keydown', e => { const b = e.target.closest('button'); if (!b || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return; e.preventDefault(); const d = ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 1; const l = Math.max(0, Math.min(3, +b.dataset.l + d)); $(`#sp-budget [data-k="${b.dataset.k}"][data-l="${l}"]`).click(); });
+$('#btn-seed').addEventListener('click', () => { S.seed = 1 + Math.floor(Math.random() * 9998); transition(paint, true); say('種子 ' + S.seed); });
+$('#btn-dice').addEventListener('click', () => {
+  const contra = $('#opt-contra').checked, pool = [];
+  for (const g of Object.keys(GRAMMARS)) for (const m of Object.keys(MOTIFS)) {
+    if (g === 'template' || m === 'plain') continue;
+    const [v] = compat(m, g), sh = GRAMMARS[g].shape, f = sh === 'any' ? 1 : CONTENT[S.content].shape[sh];
+    if (!contra && v < 0) continue;
+    if (contra && v >= 0) continue;
+    if (!contra && f === 0) continue;
+    pool.push([g, m, Math.pow(2.2, v + f)]);
+  }
+  let t = Math.random() * pool.reduce((a, p) => a + p[2], 0), pickd = pool[0];
+  for (const p of pool) { t -= p[2]; if (t <= 0) { pickd = p; break; } }
+  S.grammar = pickd[0]; S.motif = pickd[1]; S.front = 0;
+  const bk = contra ? 'brand' : ['brand', 'event', 'read', 'brand'][Math.floor(Math.random() * 4)];
+  S.budget = bk; S.lv = { ...BUDGETS[bk].lv };
+  if (contra) { const ks = ['body', 'proof', 'list']; S.lv = { nav: 0, hero: 1, body: 0, proof: 0, list: 0, cta: 1, foot: 0 }; S.lv[ks[Math.floor(Math.random() * 3)]] = 3; S.budget = 'custom'; }
+  S.seed = 1 + Math.floor(Math.random() * 9998);
+  sync(); transition(paint, false); say(`隨機組合：${GRAMMARS[S.grammar].name} × ${MOTIFS[S.motif].name}`);
+});
+$('#opt-rm').addEventListener('change', () => document.documentElement.classList.toggle('rm', $('#opt-rm').checked));
+$('#btn-copy').addEventListener('click', async e => {
+  const b = e.currentTarget, txt = $('#sp-yaml').textContent;
+  try { await navigator.clipboard.writeText(txt); b.textContent = '已複製'; }
+  catch { const r = document.createRange(); r.selectNodeContents($('#sp-yaml')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = '已選取，按 ⌘C 複製'; }
+  setTimeout(() => { b.textContent = '複製 YAML'; }, 1800);
+});
+
+/* 舞台內：連結不跳頁；卷宗頁籤 */
+page.addEventListener('click', e => {
+  const tab = e.target.closest('.stk-tab');
+  if (tab) { S.front = +tab.dataset.i; setFront(); return; }
+  if (e.target.closest('a')) e.preventDefault();
+});
+page.addEventListener('keydown', e => {
+  const tab = e.target.closest('.stk-tab'); if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault(); const n = page.querySelectorAll('.stk-tab').length;
+  S.front = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : (S.front + (e.key === 'ArrowRight' ? 1 : -1) + n) % n;
+  setFront(); page.querySelector(`#tb-${S.front}`).focus();
+});
+function setFront() {
+  const tabs = page.querySelectorAll('.stk-tab'), n = tabs.length;
+  tabs.forEach((t, i) => { t.setAttribute('aria-selected', i === S.front); t.tabIndex = i === S.front ? 0 : -1; });
+  page.querySelectorAll('.sheet').forEach((s, i) => { const o = (i - S.front + n) % n; s.dataset.o = o; s.style.setProperty('--o', o); s.inert = o !== 0; });
+}
+
+new ResizeObserver(() => { $('#vw').textContent = Math.round(site.getBoundingClientRect().width) + ' px'; }).observe(site);
+
+/* 深連結：#<grammar>-<motif> */
+const h = location.hash.slice(1).split('-');
+if (GRAMMARS[h[0]]) S.grammar = h[0];
+if (MOTIFS[h[1]]) S.motif = h[1];
+sync(); paint();
+})();
+</script>
